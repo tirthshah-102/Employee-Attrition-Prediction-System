@@ -1,0 +1,57 @@
+name: AttriSense AI CI-CD Engine
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    services:
+      mongodb:
+        image: mongo:6.0
+        ports:
+          - 27017:27017
+
+    steps:
+    - name: Checkout Code Repository
+      uses: actions/checkout@v4
+
+    # ── Frontend Build Verification ──────────────────────────────────────────
+    - name: Setup Node.js Environment
+      uses: actions/setup-node@v4
+      with:
+        node-version: 22
+        cache: 'npm'
+
+    - name: Install Frontend Dependencies
+      run: npm ci
+
+    - name: Compile production bundle (React/TypeScript/Vite)
+      run: npm run build
+
+    # ── Backend Unit Testing ──────────────────────────────────────────────────
+    - name: Setup Python Runtime Environment
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+
+    - name: Install Backend Dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r Backend/requirements.txt pytest
+
+    - name: Run Backend Pytest Suites
+      env:
+        PYTHONPATH: Backend
+      run: |
+        python -m pytest Backend/
+
+    # ── Docker Image Build Check ──────────────────────────────────────────────
+    - name: Validate Dockerfile Configurations
+      run: |
+        docker build -t attrisense-intel:latest .

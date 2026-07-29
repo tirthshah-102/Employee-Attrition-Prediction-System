@@ -1,0 +1,35 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Reference and design assets
+src1/
+GenAI UseCase_Employee Attrition.pdf
+
+# Python Backend ignores
+Backend/venv/
+Backend/.env
+Backend/__pycache__/
+Backend/**/*.pyc
+Backend/instance/*.db

@@ -1,0 +1,49 @@
+version: "3.8"
+
+services:
+  db:
+    image: mongo:6.0
+    container_name: attrisense_mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - attrisense_network
+
+  backend:
+    build:
+      context: ./Backend
+    container_name: attrisense_backend
+    ports:
+      - "5000:5000"
+    environment:
+      - MONGO_URI=mongodb://db:27017/
+      - MONGO_DB_NAME=attrisense_db
+      - SECRET_KEY=production-secret-key-jwt-123
+      - JWT_SECRET_KEY=jwt-secure-secret-key-456
+      - CORS_ORIGINS=http://localhost:5173
+    depends_on:
+      - db
+    networks:
+      - attrisense_network
+
+  frontend:
+    build:
+      context: .
+      args:
+        - VITE_API_URL=http://localhost:5000/api/v1
+    container_name: attrisense_frontend
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+    networks:
+      - attrisense_network
+
+volumes:
+  mongo_data:
+
+networks:
+  attrisense_network:
+    driver: bridge

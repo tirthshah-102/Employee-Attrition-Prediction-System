@@ -1,0 +1,17 @@
+flask==3.0.3
+flask-jwt-extended==4.6.0
+flask-cors==4.0.1
+flask-bcrypt==1.0.1
+marshmallow==3.21.3
+pandas>=2.2.3
+numpy>=2.1.0
+scikit-learn>=1.5.2
+python-dotenv==1.0.1
+gunicorn==22.0.0
+openpyxl==3.1.2
+pyotp==2.9.0
+apscheduler==3.11.2
+reportlab==5.0.0
+textblob==0.18.0.post0
+pymongo==4.17.0
+requests>=2.34.0

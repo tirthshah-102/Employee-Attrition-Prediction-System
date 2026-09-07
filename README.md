@@ -197,7 +197,7 @@ The platform features 5 distinct, collaborating sub-agents orchestrating workfor
 5. **HR Insights Agent:** Condenses all historical runs, active parameters, and interventions into executive briefs for senior leadership.
 
 ### 2. Enhanced Copilot (LLM Dynamic Capabilities & Tool Calling)
-The interactive Chat Copilot ([copilot.py](file:///d:/Internship/ST/HR%20System/Backend/app/routes/copilot.py)) acts as an autonomous Agentic Assistant with the following capabilities:
+The interactive Chat Copilot (`Backend/app/routes/copilot.py`) acts as an autonomous Agentic Assistant with the following capabilities:
 * **Dynamic Tool Calling:** The LLM can interpret natural language questions and execute backend python tools on demand:
   * **Database Queries:** Runs real-time aggregation queries on employee records.
   * **Risk Simulation:** Computes the mathematical result of hypotheticals.
@@ -308,6 +308,29 @@ python scripts/seed.py
 python run.py
 # Backend runs at -> http://localhost:5000
 ```
+
+### 2. Frontend Client Setup (React + Vite)
+In the project root directory:
+
+```powershell
+# Install node dependencies
+npm install
+
+# Start development server
+npm run dev
+# Frontend runs at -> http://localhost:5173
+```
+
+Ensure your `.env` configuration points to the active backend address:
+```env
+VITE_API_URL=http://localhost:5000/api/v1
+```
+
+To compile the production build:
+```powershell
+npm run build
+```
+
 ---
 
 ## Live Production Deployment
@@ -328,16 +351,9 @@ AttriSense AI is deployed on **Render** with high availability and cloud persist
 
 ---
 
-## Author & Project Maintainer
+## Author & Developer
 
-* **Lead Developer / Author:** **Tirth Shah**
-  * **GitHub:** [@tirthshah-SingleTap](https://github.com/tirthshah-SingleTap)
+* **Tirth Shah**
+  * **GitHub:** [@tirthshah-102](https://github.com/tirthshah-102)
   * **Email:** [tirthshah.st@gmail.com](mailto:tirthshah.st@gmail.com)
 
-### Contributors & Team
-
-* **Tirth Shah** ([@tirthshah-SingleTap](https://github.com/tirthshah-SingleTap))
-* **Pratishtha Virpura** ([@pratishthavirpura-SingleTap](https://github.com/pratishthavirpura-SingleTap))
-* **Meet Shingala** ([@meetshingal-SingleTap](https://github.com/meetshingal-SingleTap))
-* **Niyati Patel** ([@niyatipatel-SingleTap](https://github.com/niyatipatel-SingleTap))
-* **Keyur Trivedi** ([@keyurtrivedi-singletap](https://github.com/keyurtrivedi-singletap))

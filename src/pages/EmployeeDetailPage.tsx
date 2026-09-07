@@ -26,6 +26,7 @@ import {
 } from 'recharts';
 import { useSystem } from '../context/SystemContext';
 import { maskName } from '../utils/mask';
+import api from '../utils/api';
 
 // Mock historical trends per week
 const weekData = [
@@ -42,8 +43,36 @@ export function EmployeeDetailPage() {
   const navigate = useNavigate();
   const { employees, triggerPlaybook, deployingPlaybook, deployLogs, isDataMasked } = useSystem();
   
-  const employee = employees.find(e => e.id === id);
+  const contextEmp = employees.find(e => e.id === id);
+  const [employee, setEmployee] = useState<any | null>(contextEmp || null);
+  const [loading, setLoading] = useState<boolean>(!contextEmp);
   const isThisDeploying = deployingPlaybook === id;
+
+  useEffect(() => {
+    if (contextEmp) {
+      setEmployee(contextEmp);
+      setLoading(false);
+    }
+  }, [contextEmp]);
+
+  useEffect(() => {
+    const loadProfile = async () => {
+      if (!id) return;
+      try {
+        const res = await api.get(`/employees/${id}`);
+        if (res.data.success && res.data.data.employee) {
+          setEmployee(res.data.data.employee);
+        }
+      } catch (err) {
+        console.error("Error fetching employee profile directly:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    if (!contextEmp) {
+      loadProfile();
+    }
+  }, [id, contextEmp]);
 
   // Local agent logs for node diagnostics details
   const [nodeLogs, setNodeLogs] = useState<string[]>([]);
@@ -62,9 +91,9 @@ export function EmployeeDetailPage() {
   const [simRoiSavings, setSimRoiSavings] = useState<number | null>(null);
 
   // Sliders state
-  const [overtimeHrsVal, setOvertimeHrsVal] = useState(employee?.overtimeHrs || 0);
-  const [salaryGapVal, setSalaryGapVal] = useState(employee?.salaryGap || 0);
-  const [managerFeedbackVal, setManagerFeedbackVal] = useState(employee?.managerFeedback || 7.0);
+  const [overtimeHrsVal, setOvertimeHrsVal] = useState(0);
+  const [salaryGapVal, setSalaryGapVal] = useState(0);
+  const [managerFeedbackVal, setManagerFeedbackVal] = useState(7.0);
 
   useEffect(() => {
     if (employee) {
@@ -83,24 +112,16 @@ export function EmployeeDetailPage() {
   useEffect(() => {
     const fetchHistoryAndTimeline = async () => {
       try {
-        const token = localStorage.getItem("attrisense_token") || "";
-        
         // Fetch risk history
-        const resHist = await fetch(`http://127.0.0.1:5000/api/v1/employees/${id}/risk-history`, {
-          headers: { "Authorization": `Bearer ${token}` }
-        });
-        const dataHist = await resHist.json();
-        if (dataHist.success && dataHist.data.history) {
-          setHistory(dataHist.data.history);
+        const resHist = await api.get(`/employees/${id}/risk-history`);
+        if (resHist.data.success && resHist.data.data.history) {
+          setHistory(resHist.data.data.history);
         }
 
         // Fetch career timeline
-        const resTime = await fetch(`http://127.0.0.1:5000/api/v1/employees/${id}/timeline`, {
-          headers: { "Authorization": `Bearer ${token}` }
-        });
-        const dataTime = await resTime.json();
-        if (dataTime.success && dataTime.data.timeline) {
-          setTimeline(dataTime.data.timeline);
+        const resTime = await api.get(`/employees/${id}/timeline`);
+        if (resTime.data.success && resTime.data.data.timeline) {
+          setTimeline(resTime.data.data.timeline);
         }
       } catch (err) {
         console.error("Error fetching historical risk or timeline data:", err);
@@ -114,16 +135,10 @@ export function EmployeeDetailPage() {
   const handleSaveManagerNotes = async () => {
     setSavingNotes(true);
     try {
-      const token = localStorage.getItem("attrisense_token") || "";
-      const res = await fetch(`http://127.0.0.1:5000/api/v1/employees/${id}/manager-notes`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
-        },
-        body: JSON.stringify({ notes: managerNotesText })
+      const res = await api.post(`/employees/${id}/manager-notes`, {
+        notes: managerNotesText
       });
-      const data = await res.json();
+      const data = res.data;
       if (data.success) {
         setSentimentTags(data.data.tags);
         window.dispatchEvent(new CustomEvent("app-toast", {
@@ -153,20 +168,12 @@ export function EmployeeDetailPage() {
   const runSimulation = async (ot: number, sg: number, fb: number) => {
     setIsSimulating(true);
     try {
-      const token = localStorage.getItem("attrisense_token") || "";
-      const res = await fetch("http://127.0.0.1:5000/api/v1/analytics/simulate-risk", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          overtimeHrs: ot,
-          salaryGap: sg,
-          managerFeedback: fb
-        })
+      const res = await api.post("/analytics/simulate-risk", {
+        overtimeHrs: ot,
+        salaryGap: sg,
+        managerFeedback: fb
       });
-      const data = await res.json();
+      const data = res.data;
       if (data.success) {
         setSimProbability(data.data.probability);
         setSimStatus(data.data.status);
@@ -203,6 +210,15 @@ export function EmployeeDetailPage() {
       });
     }
   }, [employee?.playbookStatus, employee?.probability]);
+
+  if (loading) {
+    return (
+      <div className="min-h-[60vh] flex flex-col items-center justify-center space-y-3">
+        <Loader2 className="w-8 h-8 text-accent-blue animate-spin" />
+        <p className="text-xs font-mono text-slate-400">Loading live telemetry and employee profile...</p>
+      </div>
+    );
+  }
 
   if (!employee) {
     return (
@@ -242,7 +258,7 @@ export function EmployeeDetailPage() {
     <div className="min-h-screen bg-primary-bg text-slate-100 font-sans flex flex-col relative selection:bg-accent-blue/30 selection:text-white">
       
       {/* 1. Fixed Top Command Header */}
-      <header className="h-16 bg-secondary-bg/80 border-b border-border-primary/60 px-6 flex items-center justify-between z-20 shrink-0">
+      <header className="h-16 bg-secondary-bg/80 border-b border-border-primary/60 px-4 sm:px-6 flex items-center justify-between z-20 shrink-0">
         <div className="flex items-center space-x-4">
           <button 
             onClick={() => navigate(-1)}
@@ -253,10 +269,10 @@ export function EmployeeDetailPage() {
           </button>
         </div>
 
-        <div className="flex items-center space-x-6 font-mono text-[10px] text-slate-500 tracking-wider">
-          <span className="hidden sm:block">Employee ID: <span className="text-white">{employee.id}</span></span>
+        <div className="flex items-center space-x-3 sm:space-x-6 font-mono text-[10px] text-slate-500 tracking-wider">
+          <span className="inline-block">ID: <span className="text-white font-bold">{employee.id}</span></span>
           <span className="hidden sm:block text-slate-700">|</span>
-          <span>TIME: <span className="text-slate-300">18:12:04 Z</span></span>
+          <span className="hidden sm:inline">TIME: <span className="text-slate-300">18:12:04 Z</span></span>
         </div>
       </header>
 
@@ -264,13 +280,13 @@ export function EmployeeDetailPage() {
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 items-stretch gap-0 relative">
         
         {/* LEFT COLUMN (3 Cols): Employee profile contexts */}
-        <aside className="lg:col-span-3 bg-secondary-bg/80 border-b lg:border-b-0 lg:border-r border-border-primary/60 p-6 space-y-6">
-          <div className="text-center pb-6 border-b border-border-primary/60">
+        <aside className="lg:col-span-3 bg-secondary-bg/80 border-b lg:border-b-0 lg:border-r border-border-primary/60 p-4 sm:p-6 space-y-4 sm:space-y-6">
+          <div className="text-center pb-4 sm:pb-6 border-b border-border-primary/60">
             {/* Avatar placeholder with status glow */}
-            <div className="relative inline-block mb-4">
+            <div className="relative inline-block mb-3 sm:mb-4">
               <div className="absolute inset-0 bg-blue-500/20 rounded-full blur-md"></div>
-              <div className="relative w-20 h-20 rounded-full border-2 border-border-primary/60 bg-secondary-bg/50 flex items-center justify-center text-slate-400">
-                <User className="w-10 h-10" />
+              <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-full border-2 border-border-primary/60 bg-secondary-bg/50 flex items-center justify-center text-slate-400">
+                <User className="w-8 h-8 sm:w-10 sm:h-10" />
               </div>
               <span className={`w-3.5 h-3.5 rounded-full absolute bottom-1 right-1 border-2 border-[#121414] ${
                 employee.status === 'High' ? 'bg-[#EF4444]' : 
@@ -279,39 +295,39 @@ export function EmployeeDetailPage() {
               }`}></span>
             </div>
             
-            <h2 className="text-lg font-bold text-white leading-tight">{maskName(employee.name, isDataMasked)}</h2>
+            <h2 className="text-base sm:text-lg font-bold text-white leading-tight">{maskName(employee.name, isDataMasked)}</h2>
             <span className="font-mono text-[9px] text-accent-blue tracking-wider uppercase block mt-1">
               {employee.role}
             </span>
           </div>
 
           {/* Profile metadata */}
-          <div className="space-y-4 font-mono text-[10px]">
-            <span className="block text-slate-500 uppercase tracking-wider">Employee Metrics</span>
+          <div className="space-y-3 sm:space-y-4 font-mono text-[10px]">
+            <span className="block text-slate-500 uppercase tracking-wider font-semibold">Employee Metrics</span>
             
             <div className="space-y-2">
               <div className="flex justify-between border-b border-border-primary/60/40 pb-1.5">
-                <span className="text-slate-500 flex items-center"><Users className="w-3.5 h-3.5 mr-1 text-slate-600" /> Department:</span>
+                <span className="text-slate-500 flex items-center"><Users className="w-3.5 h-3.5 mr-1 text-slate-600 shrink-0" /> Department:</span>
                 <span className="text-white uppercase">{employee.dept}</span>
               </div>
               <div className="flex justify-between border-b border-border-primary/60/40 pb-1.5">
-                <span className="text-slate-500 flex items-center"><Calendar className="w-3.5 h-3.5 mr-1 text-slate-600" /> Tenure:</span>
+                <span className="text-slate-500 flex items-center"><Calendar className="w-3.5 h-3.5 mr-1 text-slate-600 shrink-0" /> Tenure:</span>
                 <span className="text-white uppercase">{employee.tenure}</span>
               </div>
               <div className="flex justify-between border-b border-border-primary/60/40 pb-1.5">
-                <span className="text-slate-500 flex items-center"><Calendar className="w-3.5 h-3.5 mr-1 text-slate-600" /> Hired Date:</span>
+                <span className="text-slate-500 flex items-center"><Calendar className="w-3.5 h-3.5 mr-1 text-slate-600 shrink-0" /> Hired Date:</span>
                 <span className="text-white uppercase">{employee.dateHired}</span>
               </div>
               <div className="flex justify-between border-b border-border-primary/60/40 pb-1.5">
-                <span className="text-slate-500 flex items-center"><Compass className="w-3.5 h-3.5 mr-1 text-slate-600" /> Location:</span>
+                <span className="text-slate-500 flex items-center"><Compass className="w-3.5 h-3.5 mr-1 text-slate-600 shrink-0" /> Location:</span>
                 <span className="text-white uppercase">{employee.location}</span>
               </div>
               <div className="flex justify-between border-b border-border-primary/60/40 pb-1.5">
-                <span className="text-slate-500 flex items-center"><Star className="w-3.5 h-3.5 mr-1 text-slate-600" /> Performance:</span>
-                <span className="text-white">{employee.rating}/5.0</span>
+                <span className="text-slate-500 flex items-center"><Star className="w-3.5 h-3.5 mr-1 text-slate-600 shrink-0" /> Performance:</span>
+                <span className="text-white font-bold">{employee.rating}/5.0</span>
               </div>
               <div className="flex justify-between border-b border-border-primary/60/40 pb-1.5">
-                <span className="text-slate-500 flex items-center"><DollarSign className="w-3.5 h-3.5 mr-1 text-slate-600" /> Salary Market Delta:</span>
+                <span className="text-slate-500 flex items-center"><DollarSign className="w-3.5 h-3.5 mr-1 text-slate-600 shrink-0" /> Salary Market Delta:</span>
                 <span className={`font-semibold ${employee.salaryGap < 0 ? 'text-[#EF4444]' : 'text-[#22C55E]'}`}>
                   {employee.salaryGap}% Delta
                 </span>
@@ -321,16 +337,16 @@ export function EmployeeDetailPage() {
         </aside>
 
         {/* MIDDLE CONTENT COLUMN (6 Cols): Risk and playbooks dashboard */}
-        <main className="lg:col-span-6 p-6 space-y-6 overflow-y-auto">
+        <main className="lg:col-span-6 p-4 sm:p-6 space-y-4 sm:space-y-6 overflow-y-auto">
           
           {/* Risk probability and historical chart */}
-          <div className="bg-secondary-bg/50 border border-border-primary/60 p-6 rounded space-y-6">
-            <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 border-b border-border-primary/60/60 pb-3">
+          <div className="bg-secondary-bg/50 border border-border-primary/60 p-4 sm:p-6 rounded space-y-4 sm:space-y-6">
+            <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 sm:gap-4 border-b border-border-primary/60 pb-3">
               <div>
                 <span className="block font-mono text-[9px] uppercase text-slate-500 tracking-wider">Attrition Threat Level</span>
                 <h3 className="font-bold text-sm text-white mt-0.5">Historical Attrition Risk Forecast</h3>
               </div>
-              <div className="flex items-center space-x-3.5 bg-secondary-bg/80 border border-border-primary/60 px-4 py-2 rounded">
+              <div className="flex items-center space-x-3.5 bg-secondary-bg/80 border border-border-primary/60 px-3.5 py-1.5 rounded self-start sm:self-auto">
                 <span className="font-mono text-[10px] text-slate-400">Risk Score:</span>
                 <span className={`font-mono text-base font-bold ${
                   employee.status === 'High' ? 'text-[#EF4444]' : 

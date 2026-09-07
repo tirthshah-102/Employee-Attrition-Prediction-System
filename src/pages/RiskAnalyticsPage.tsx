@@ -97,17 +97,17 @@ export function RiskAnalyticsPage() {
   }, [currentSelectedEmp?.id]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       
       {/* Risk table browse roster */}
-      <div className="bg-secondary-bg/50 border border-border-primary/60 rounded p-6 space-y-6">
+      <div className="bg-secondary-bg/50 border border-border-primary/60 rounded p-4 sm:p-6 space-y-4 sm:space-y-6">
         
         {/* Risk Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-secondary-bg/80 border border-[#EF4444]/20 p-4 rounded flex justify-between items-center">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-6">
+          <div className="bg-secondary-bg/80 border border-[#EF4444]/20 p-3.5 sm:p-4 rounded flex justify-between items-center">
             <div>
               <span className="block font-mono text-[9px] text-[#EF4444] uppercase tracking-wider font-semibold">High Risk Cohort</span>
-              <span className="font-mono text-lg font-bold text-white mt-1 block">
+              <span className="font-mono text-base sm:text-lg font-bold text-white mt-1 block">
                 {(riskSummary?.High?.count ?? employees.filter(e => e.status === 'High').length).toString().padStart(2, '0')} Employees
               </span>
             </div>
@@ -119,10 +119,10 @@ export function RiskAnalyticsPage() {
             </div>
           </div>
           
-          <div className="bg-secondary-bg/80 border border-[#F59E0B]/20 p-4 rounded flex justify-between items-center">
+          <div className="bg-secondary-bg/80 border border-[#F59E0B]/20 p-3.5 sm:p-4 rounded flex justify-between items-center">
             <div>
               <span className="block font-mono text-[9px] text-[#F59E0B] uppercase tracking-wider font-semibold">Medium Risk Cohort</span>
-              <span className="font-mono text-lg font-bold text-white mt-1 block">
+              <span className="font-mono text-base sm:text-lg font-bold text-white mt-1 block">
                 {(riskSummary?.Medium?.count ?? employees.filter(e => e.status === 'Medium').length).toString().padStart(2, '0')} Employees
               </span>
             </div>
@@ -134,10 +134,10 @@ export function RiskAnalyticsPage() {
             </div>
           </div>
           
-          <div className="bg-secondary-bg/80 border border-[#22C55E]/20 p-4 rounded flex justify-between items-center">
+          <div className="bg-secondary-bg/80 border border-[#22C55E]/20 p-3.5 sm:p-4 rounded flex justify-between items-center sm:col-span-2 md:col-span-1">
             <div>
               <span className="block font-mono text-[9px] text-[#22C55E] uppercase tracking-wider font-semibold">Low Risk Cohort</span>
-              <span className="font-mono text-lg font-bold text-white mt-1 block">
+              <span className="font-mono text-base sm:text-lg font-bold text-white mt-1 block">
                 {(riskSummary?.Low?.count ?? employees.filter(e => e.status === 'Low').length).toString().padStart(2, '0')} Employees
               </span>
             </div>
@@ -151,7 +151,7 @@ export function RiskAnalyticsPage() {
         </div>
 
         {/* Directory Controls */}
-        <div className="flex flex-col md:flex-row gap-4 justify-between items-start md:items-center pt-2 font-mono text-xs">
+        <div className="flex flex-col md:flex-row gap-3 sm:gap-4 justify-between items-stretch md:items-center pt-2 font-mono text-xs">
           
           {/* Global search */}
           <div className="relative w-full md:w-80">
@@ -163,18 +163,18 @@ export function RiskAnalyticsPage() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search by name, role, or ID..."
-              className="w-full bg-primary-bg/85 border border-border-primary/60 pl-9 pr-4 py-2.5 rounded outline-none focus:border-accent-blue/50 text-slate-300 placeholder-slate-600 transition-colors"
+              className="w-full bg-primary-bg/85 border border-border-primary/60 pl-9 pr-4 py-2.5 rounded outline-none focus:border-accent-blue/50 text-slate-300 placeholder-slate-600 transition-colors text-[11px]"
             />
           </div>
 
           {/* Quick Filters */}
-          <div className="flex flex-wrap gap-3 items-center w-full md:w-auto">
+          <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2.5 sm:gap-3 items-center w-full md:w-auto">
             {/* Status Filter */}
-            <div className="relative">
+            <div className="relative flex-1 sm:flex-initial">
               <select
                 value={statusFilter}
                 onChange={(e: any) => setStatusFilter(e.target.value)}
-                className="appearance-none bg-primary-bg/85 border border-border-primary/60 pl-3 pr-8 py-2.5 rounded outline-none text-slate-300 focus:border-accent-blue/50 cursor-pointer"
+                className="w-full appearance-none bg-primary-bg/85 border border-border-primary/60 pl-3 pr-8 py-2 sm:py-2.5 rounded outline-none text-slate-300 focus:border-accent-blue/50 cursor-pointer text-[11px] uppercase font-mono"
               >
                 <option value="All">All Risks</option>
                 <option value="High">High Risk</option>
@@ -185,13 +185,13 @@ export function RiskAnalyticsPage() {
             </div>
 
             {/* Department Filter */}
-            <div className="relative">
+            <div className="relative flex-1 sm:flex-initial">
               <select
                 value={deptFilter}
                 onChange={(e) => setDeptFilter(e.target.value)}
-                className="appearance-none bg-primary-bg/85 border border-border-primary/60 pl-3 pr-8 py-2.5 rounded outline-none text-slate-300 focus:border-accent-blue/50 cursor-pointer"
+                className="w-full appearance-none bg-primary-bg/85 border border-border-primary/60 pl-3 pr-8 py-2 sm:py-2.5 rounded outline-none text-slate-300 focus:border-accent-blue/50 cursor-pointer text-[11px] uppercase font-mono"
               >
-                <option value="All">All Departments</option>
+                <option value="All">All Depts</option>
                 {Array.from(new Set(employees.map(e => e.dept))).map(d => (
                   <option key={d} value={d}>{d}</option>
                 ))}

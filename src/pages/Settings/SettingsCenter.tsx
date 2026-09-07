@@ -1,7 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Plus, Shield, RotateCw, Cpu, Globe } from 'lucide-react';
+import { 
+    X, Plus, Shield, RotateCw, Cpu, Globe, Loader2, 
+    Database, MessageSquare, Video, Scale, Zap, 
+    ShieldAlert, Sliders, Users, ChevronRight, CheckCircle2, 
+    AlertTriangle, Info, Share2 
+} from 'lucide-react';
 import api from '../../utils/api';
 import { useSystem } from '../../context/SystemContext';
 
@@ -323,31 +328,37 @@ export default function SettingsCenter() {
         }, 1500);
     };
 
+    const [isAddingUser, setIsAddingUser] = useState(false);
+    const [addUserError, setAddUserError] = useState<string | null>(null);
+
     // Form user submission
     const handleAddUserSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+        setAddUserError(null);
         if (!newUserName.trim() || !newUserEmail.trim()) {
+            setAddUserError('Name and email are required fields.');
             addToast('Name and email are required fields.', 'warning');
             return;
         }
 
+        setIsAddingUser(true);
         api.post('/auth/users', {
-            name: newUserName,
-            email: newUserEmail,
+            name: newUserName.trim(),
+            email: newUserEmail.trim(),
             role: newUserRole,
             department: newUserRole === 'Department Manager' ? newUserDept : undefined
         })
         .then(res => {
             if (res.data.success) {
                 const addedUser = res.data.data.user;
-                const initials = addedUser.name.split(' ').map((n: any) => n[0]).join('').toUpperCase().substring(0, 2);
+                const initials = (addedUser.name || '').split(' ').map((n: any) => n[0]).join('').toUpperCase().substring(0, 2);
                 const colors = [
                     'bg-primary/20 text-primary border-primary/40',
                     'bg-secondary/20 text-secondary border-secondary/40',
                     'bg-tertiary/20 text-tertiary border-tertiary/40'
                 ];
                 const mappedUser: User = {
-                    id: String(addedUser.id),
+                    id: String(addedUser.id || addedUser._id),
                     name: addedUser.name,
                     email: addedUser.email,
                     role: addedUser.role === 'admin' 
@@ -361,6 +372,7 @@ export default function SettingsCenter() {
                 };
                 setUsers(prev => [...prev, mappedUser]);
                 setShowAddModal(false);
+                setAddUserError(null);
                 addToast(`User ${newUserName} added successfully.`, 'success');
                 logActivity('User Added', `${newUserName} (${newUserRole}) registered`, 'primary');
                 
@@ -373,24 +385,93 @@ export default function SettingsCenter() {
             }
         })
         .catch(err => {
-            console.error(err);
-            addToast('Failed to add user to database.', 'warning');
+            console.error('Failed to add user:', err);
+            const msg = err.response?.data?.message || 'Failed to add user. Check if email already exists.';
+            setAddUserError(msg);
+            addToast(msg, 'warning');
+        })
+        .finally(() => {
+            setIsAddingUser(false);
         });
+    };
+
+    const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
+    const [isDeletingUsers, setIsDeletingUsers] = useState(false);
+
+    const handleSelectAllUsers = (checked: boolean) => {
+        if (checked) {
+            setSelectedUserIds(filteredUsers.map(u => u.id));
+        } else {
+            setSelectedUserIds([]);
+        }
+    };
+
+    const handleSelectIndividualUser = (id: string, checked: boolean) => {
+        if (checked) {
+            setSelectedUserIds(prev => [...prev, id]);
+        } else {
+            setSelectedUserIds(prev => prev.filter(uid => uid !== id));
+        }
     };
 
     // Delete user helper
     const handleDeleteUser = (userId: string, name: string) => {
+        if (!window.confirm(`Are you sure you want to permanently delete user "${name}" from the database?`)) {
+            return;
+        }
         api.delete(`/auth/users/${userId}`)
             .then(res => {
                 if (res.data.success) {
                     setUsers(prev => prev.filter(u => u.id !== userId));
-                    addToast(`User ${name} has been de-authorized.`, 'info');
-                    logActivity('User De-authorized', `Removed credentials for ${name}`, 'error');
+                    setSelectedUserIds(prev => prev.filter(uid => uid !== userId));
+                    addToast(`User ${name} has been permanently deleted.`, 'info');
+                    logActivity('User Deleted', `Permanently removed ${name}`, 'error');
                 }
             })
             .catch(err => {
                 console.error(err);
-                addToast('Failed to remove user from database.', 'warning');
+                addToast(err.response?.data?.message || 'Failed to remove user from database.', 'warning');
+            });
+    };
+
+    const handleDeleteBulkUsers = () => {
+        if (!window.confirm(`Are you sure you want to permanently delete all ${selectedUserIds.length} selected users from the database?`)) {
+            return;
+        }
+        setIsDeletingUsers(true);
+        api.post('/auth/users/bulk-delete', { user_ids: selectedUserIds })
+            .then(res => {
+                if (res.data.success) {
+                    const deletedSet = new Set(selectedUserIds);
+                    setUsers(prev => prev.filter(u => !deletedSet.has(u.id)));
+                    setSelectedUserIds([]);
+                    addToast(`Successfully deleted ${res.data.data.deletedCount} users permanently.`, 'success');
+                    logActivity('Bulk Users Deleted', `Deleted ${res.data.data.deletedCount} credentials`, 'error');
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                addToast(err.response?.data?.message || 'Failed to delete selected users.', 'warning');
+            })
+            .finally(() => setIsDeletingUsers(false));
+    };
+
+    const handleClearAuditTrail = () => {
+        if (!window.confirm("Are you sure you want to permanently clear all compliance audit trail logs from the database?")) {
+            return;
+        }
+        api.delete('/settings/audit-trail')
+            .then(res => {
+                if (res.data.success) {
+                    setAuditLogs([]);
+                    setAuditTotal(0);
+                    addToast('Compliance audit trail cleared permanently.', 'success');
+                    logActivity('Audit Trail Purged', 'All compliance action logs purged', 'error');
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                addToast('Failed to clear audit trail.', 'warning');
             });
     };
 
@@ -404,7 +485,7 @@ export default function SettingsCenter() {
     const activeIntegrationsCount = 1 + (slackConnected ? 1 : 0) + (teamsConnected ? 1 : 0);
 
     return (
-        <div className="bg-primary-bg text-on-surface min-h-screen relative pb-16 flex flex-col">
+        <div className="bg-primary-bg text-on-surface min-h-screen relative pb-16 flex flex-col overflow-x-hidden max-w-full w-full">
             {/* Custom Toast Alerts */}
             <div className="fixed top-20 right-6 z-[60] flex flex-col gap-2 max-w-sm">
                 <AnimatePresence>
@@ -419,9 +500,9 @@ export default function SettingsCenter() {
                                 toast.type === 'warning' ? 'border-l-yellow-500' : 'border-l-primary'
                             }`}
                         >
-                            <span className="material-symbols-outlined text-sm mt-0.5 text-on-surface-variant">
-                                {toast.type === 'success' ? 'check_circle' : toast.type === 'warning' ? 'warning' : 'info'}
-                            </span>
+                            {toast.type === 'success' ? <CheckCircle2 size={16} className="mt-0.5 text-green-500 shrink-0" /> :
+                             toast.type === 'warning' ? <AlertTriangle size={16} className="mt-0.5 text-yellow-500 shrink-0" /> :
+                             <Info size={16} className="mt-0.5 text-primary shrink-0" />}
                             <div className="flex-1 text-xs font-semibold">{toast.message}</div>
                             <button onClick={() => setToasts(prev => prev.filter(t => t.id !== toast.id))} className="text-on-surface-variant hover:text-on-surface">
                                 <X size={14} />
@@ -432,46 +513,64 @@ export default function SettingsCenter() {
             </div>
 
             {/* Settings Header Hero */}
-            <section className="p-container-padding border-b border-outline-variant bg-surface-container-low/30">
+            <section className="p-4 sm:p-6 lg:p-8 border-b border-outline-variant bg-surface-container-low/30">
                 <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
                     <div className="max-w-3xl">
-                        <h1 className="font-display-lg text-display-lg text-on-surface leading-tight">Platform Settings &amp; Administration</h1>
-                        <p className="font-body-lg text-body-lg text-on-surface-variant mt-2 max-w-2xl">
+                        <h1 className="font-display-lg text-2xl sm:text-3xl lg:text-4xl text-on-surface leading-tight font-bold">Platform Settings &amp; Administration</h1>
+                        <p className="font-body-lg text-xs sm:text-sm text-on-surface-variant mt-2 max-w-2xl">
                             Configure workforce intelligence settings, manage access credentials, control AI prediction models, monitor system health telemetry, and maintain enterprise governance rules.
                         </p>
-                        <div className="flex flex-wrap gap-3 mt-6">
-                            <div className="flex items-center gap-2 px-3 py-1.5 bg-surface-container-highest rounded border border-outline-variant text-xs">
+                        <div className="flex flex-wrap gap-2 sm:gap-3 mt-4 sm:mt-6">
+                            <div className="flex items-center gap-2 px-3 py-1.5 bg-surface-container-highest rounded border border-outline-variant text-[10px] sm:text-xs">
                                 <div className="led-indicator led-green"></div>
                                 <span className="font-mono-label text-mono-label">SYSTEM_STATUS: OPERATIONAL</span>
                             </div>
-                            <div className="flex items-center gap-2 px-3 py-1.5 bg-surface-container-highest rounded border border-outline-variant text-xs">
+                            <div className="flex items-center gap-2 px-3 py-1.5 bg-surface-container-highest rounded border border-outline-variant text-[10px] sm:text-xs">
                                 <div className="led-indicator led-blue"></div>
                                 <span className="font-mono-label text-mono-label uppercase">RBAC: ACTIVE</span>
                             </div>
-                            <div className="flex items-center gap-2 px-3 py-1.5 bg-surface-container-highest rounded border border-outline-variant text-xs">
+                            <div className="flex items-center gap-2 px-3 py-1.5 bg-surface-container-highest rounded border border-outline-variant text-[10px] sm:text-xs">
                                 <div className="led-indicator led-blue"></div>
                                 <span className="font-mono-label text-mono-label uppercase">AUDIT_LOGGING: ENABLED</span>
                             </div>
                         </div>
                     </div>
-                    <div className="w-full md:w-64 h-28 relative overflow-hidden rounded-xl border border-outline-variant group flex flex-col items-center justify-center bg-surface-container-high/40 backdrop-blur-sm shadow-inner shrink-0">
+                    <div className="w-full md:w-64 h-24 sm:h-28 relative overflow-hidden rounded-xl border border-outline-variant group flex flex-col items-center justify-center bg-surface-container-high/40 backdrop-blur-sm shadow-inner shrink-0">
                         <div className="absolute inset-0 bg-gradient-to-tr from-primary/5 to-transparent"></div>
                         <span className="font-mono-label text-primary text-[10px] uppercase tracking-wider mb-1 flex items-center gap-1.5">
                             <Globe size={11} className="animate-spin-slow" />
                             Instance: US-WEST-01
                         </span>
-                        <span className="font-mono-metric text-display-lg text-3xl font-black bg-gradient-to-r from-on-surface to-on-surface-variant bg-clip-text text-transparent">99.98%</span>
-                        <span className="text-[10px] text-green-500 font-mono-label uppercase mt-1">Operational Uptime</span>
+                        <span className="font-mono-metric text-2xl sm:text-3xl font-black bg-gradient-to-r from-on-surface to-on-surface-variant bg-clip-text text-transparent">99.98%</span>
+                        <span className="text-[10px] text-green-500 font-mono-label uppercase mt-0.5">Operational Uptime</span>
                     </div>
                 </div>
             </section>
 
-            {/* Three-Column Grid */}
-            <div className="flex-1 flex overflow-hidden">
-                {/* Left Column: Sub-navigation & Emergency rotate */}
-                <aside className="w-64 border-r border-outline-variant p-container-padding flex flex-col gap-stack-lg shrink-0">
+            {/* Mobile/Tablet Sub-Navigation Selector (No Swiping Needed) */}
+            <div className="lg:hidden border-b border-outline-variant bg-surface-container-low/80 p-3">
+                <div className="relative">
+                    <select
+                        value={activeTab}
+                        onChange={(e) => setActiveTab(e.target.value as any)}
+                        className="w-full bg-secondary-bg border border-outline-variant rounded-lg px-3.5 py-2.5 text-xs text-primary font-mono outline-none appearance-none cursor-pointer"
+                    >
+                        <option value="all">📁 All Control Modules</option>
+                        <option value="prediction-engine">⚙️ Prediction Engine</option>
+                        <option value="user-access">👥 User &amp; Access Management</option>
+                        <option value="integrations">🔗 Integrations Hub</option>
+                        <option value="security">🛡️ Compliance Audit Logs (SOC 2)</option>
+                    </select>
+                    <span className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-on-surface-variant text-xs font-mono">▾</span>
+                </div>
+            </div>
+
+            {/* Main Content Layout */}
+            <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
+                {/* Left Column: Sub-navigation & Emergency rotate (Visible on lg+) */}
+                <aside className="hidden lg:flex w-64 border-r border-outline-variant p-4 sm:p-6 flex-col gap-6 shrink-0">
                     <div>
-                        <h3 className="font-mono-label text-mono-label text-outline uppercase tracking-widest mb-stack-md px-4">Control Modules</h3>
+                        <h3 className="font-mono-label text-mono-label text-outline uppercase tracking-widest mb-3 px-4">Control Modules</h3>
                         <nav className="space-y-1">
                             {[
                                 { id: 'all', label: 'All Settings' },
@@ -490,13 +589,13 @@ export default function SettingsCenter() {
                                     }`}
                                 >
                                     <span className="font-body-md">{item.label}</span>
-                                    {activeTab === item.id && <span className="material-symbols-outlined text-xs">chevron_right</span>}
+                                    {activeTab === item.id && <ChevronRight size={14} className="text-primary" />}
                                 </button>
                             ))}
                         </nav>
                     </div>
 
-                    <div className="bg-surface-container-low rounded-xl p-4 border border-outline-variant flex flex-col justify-between mt-4">
+                    <div className="bg-surface-container-low rounded-xl p-4 border border-outline-variant flex flex-col justify-between mt-auto">
                         <div>
                             <span className="font-mono-label text-[10px] text-primary uppercase block mb-1 tracking-widest">QUICK_ACTION</span>
                             <h4 className="text-xs font-bold text-on-surface mb-2">Emergency Rotation</h4>
@@ -515,7 +614,7 @@ export default function SettingsCenter() {
                 </aside>
 
                 {/* Main Middle Column: Scrollable Settings content */}
-                <div className="flex-1 p-container-padding space-y-stack-lg border-r border-outline-variant overflow-y-auto">
+                <div className="flex-1 p-4 sm:p-6 lg:p-8 space-y-6 lg:border-r border-outline-variant overflow-y-auto">
                     {/* Filter condition logic */}
 
                     {/* Section: Prediction Engine */}
@@ -523,13 +622,13 @@ export default function SettingsCenter() {
                         <section className="bg-surface-container-low border border-outline-variant rounded-xl overflow-hidden shadow-sm">
                             <div className="p-4 border-b border-outline-variant bg-surface-container/30 flex justify-between items-center">
                                 <div className="flex items-center gap-3">
-                                    <span className="material-symbols-outlined text-primary text-xl">rule_settings</span>
+                                    <Sliders size={18} className="text-primary" />
                                     <h2 className="text-sm font-bold tracking-tight text-on-surface uppercase">Prediction Engine Configuration</h2>
                                 </div>
                                 <span className="font-mono-label text-[10px] text-primary bg-primary/10 border border-primary/20 px-2 py-0.5 rounded font-bold">V2.4_STABLE</span>
                             </div>
-                            <div className="p-6 space-y-6">
-                                <div className="grid grid-cols-2 gap-6">
+                            <div className="p-4 sm:p-6 space-y-6">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                                     <div className="space-y-2">
                                         <label className="block font-mono-label text-[10px] text-outline uppercase tracking-wider">Model Architecture</label>
                                         <select 
@@ -621,22 +720,42 @@ export default function SettingsCenter() {
                     {/* Section: User & Access Management */}
                     {(activeTab === 'all' || activeTab === 'user-access') && (
                         <section className="bg-surface-container-low border border-outline-variant rounded-xl overflow-hidden shadow-sm">
-                            <div className="p-4 border-b border-outline-variant bg-surface-container/30 flex justify-between items-center">
+                            <div className="p-4 border-b border-outline-variant bg-surface-container/30 flex justify-between items-center flex-wrap gap-3">
                                 <div className="flex items-center gap-3">
-                                    <span className="material-symbols-outlined text-primary text-xl">group</span>
+                                    <Users size={18} className="text-primary" />
                                     <h2 className="text-sm font-bold tracking-tight text-on-surface uppercase">User &amp; Access Management</h2>
                                 </div>
-                                <button 
-                                    onClick={() => setShowAddModal(true)}
-                                    className="text-primary hover:text-primary-container font-mono-label text-xs hover:underline uppercase flex items-center gap-1 border-none bg-transparent"
-                                >
-                                    <Plus size={14} /> Add User
-                                </button>
+                                <div className="flex items-center gap-3">
+                                    {selectedUserIds.length > 0 && (
+                                        <button
+                                            onClick={handleDeleteBulkUsers}
+                                            disabled={isDeletingUsers}
+                                            className="px-3 py-1 bg-error/15 hover:bg-error text-error hover:text-white border border-error/30 rounded text-xs font-mono-label font-bold transition-colors cursor-pointer"
+                                        >
+                                            Delete ({selectedUserIds.length})
+                                        </button>
+                                    )}
+                                    <button 
+                                        onClick={() => setShowAddModal(true)}
+                                        className="text-primary hover:text-primary-container font-mono-label text-xs hover:underline uppercase flex items-center gap-1 border-none bg-transparent cursor-pointer"
+                                    >
+                                        <Plus size={14} /> Add User
+                                    </button>
+                                </div>
                             </div>
-                            <div className="overflow-x-auto">
+                            {/* Desktop Table View */}
+                            <div className="hidden sm:block overflow-x-auto">
                                 <table className="w-full text-left border-collapse">
                                     <thead>
                                         <tr className="border-b border-outline-variant bg-surface-bright/10">
+                                            <th className="px-4 py-3 w-8">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={filteredUsers.length > 0 && selectedUserIds.length === filteredUsers.length}
+                                                    onChange={(e) => handleSelectAllUsers(e.target.checked)}
+                                                    className="rounded border-outline-variant bg-secondary-bg text-primary focus:ring-primary cursor-pointer"
+                                                />
+                                            </th>
                                             <th className="px-6 py-3 font-mono-label text-[10px] text-outline uppercase">Identity</th>
                                             <th className="px-6 py-3 font-mono-label text-[10px] text-outline uppercase">Role</th>
                                             <th className="px-6 py-3 font-mono-label text-[10px] text-outline uppercase">MFA_Status</th>
@@ -646,13 +765,21 @@ export default function SettingsCenter() {
                                     <tbody className="divide-y divide-outline-variant/20">
                                         {filteredUsers.length === 0 ? (
                                             <tr>
-                                                <td colSpan={4} className="px-6 py-8 text-center text-xs text-on-surface-variant font-mono-label">
+                                                <td colSpan={5} className="px-6 py-8 text-center text-xs text-on-surface-variant font-mono-label">
                                                     No registered administrators match the search criteria.
                                                 </td>
                                             </tr>
                                         ) : (
                                             filteredUsers.map(user => (
                                                 <tr key={user.id} className="hover:bg-surface-bright/5 transition-colors">
+                                                    <td className="px-4 py-4">
+                                                        <input
+                                                             type="checkbox"
+                                                             checked={selectedUserIds.includes(user.id)}
+                                                             onChange={(e) => handleSelectIndividualUser(user.id, e.target.checked)}
+                                                             className="rounded border-outline-variant bg-secondary-bg text-primary focus:ring-primary cursor-pointer"
+                                                         />
+                                                    </td>
                                                     <td className="px-6 py-4">
                                                         <div className="flex items-center gap-3">
                                                             <div className={`w-8 h-8 rounded border flex items-center justify-center text-xs font-bold shrink-0 ${user.color}`}>
@@ -678,9 +805,9 @@ export default function SettingsCenter() {
                                                     <td className="px-6 py-4 text-right">
                                                         <button 
                                                             onClick={() => handleDeleteUser(user.id, user.name)}
-                                                            className="text-on-surface-variant hover:text-error text-xs font-mono-label border-none bg-transparent hover:underline"
+                                                            className="text-on-surface-variant hover:text-error text-xs font-mono-label border-none bg-transparent hover:underline cursor-pointer"
                                                         >
-                                                            De-authorize
+                                                            Delete
                                                         </button>
                                                     </td>
                                                 </tr>
@@ -688,6 +815,52 @@ export default function SettingsCenter() {
                                         )}
                                     </tbody>
                                 </table>
+                            </div>
+
+                            {/* Mobile Card Stack View (Zero Horizontal Scroll) */}
+                            <div className="sm:hidden divide-y divide-outline-variant/20 p-2">
+                                {filteredUsers.length === 0 ? (
+                                    <div className="p-4 text-center text-xs text-on-surface-variant font-mono-label">
+                                        No registered administrators found.
+                                    </div>
+                                ) : (
+                                    filteredUsers.map(user => (
+                                        <div key={user.id} className="p-3 space-y-3 bg-surface-bright/5 rounded-lg my-1.5 border border-outline-variant/30">
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-2.5">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={selectedUserIds.includes(user.id)}
+                                                        onChange={(e) => handleSelectIndividualUser(user.id, e.target.checked)}
+                                                        className="rounded border-outline-variant bg-secondary-bg text-primary focus:ring-primary cursor-pointer"
+                                                    />
+                                                    <div className={`w-7 h-7 rounded border flex items-center justify-center text-[11px] font-bold shrink-0 ${user.color}`}>
+                                                        {user.initials}
+                                                    </div>
+                                                    <div>
+                                                        <div className="text-xs font-bold text-on-surface leading-tight">{user.name}</div>
+                                                        <div className="text-[10px] font-mono-label text-on-surface-variant truncate max-w-[170px]">{user.email}</div>
+                                                    </div>
+                                                </div>
+                                                <button 
+                                                    onClick={() => handleDeleteUser(user.id, user.name)}
+                                                    className="text-error hover:underline text-xs font-mono-label border-none bg-transparent cursor-pointer p-1"
+                                                >
+                                                    Delete
+                                                </button>
+                                            </div>
+                                            <div className="flex items-center justify-between pt-1 border-t border-outline-variant/10 text-[10px] font-mono-label">
+                                                <span className="px-2 py-0.5 bg-surface-bright/50 rounded border border-outline-variant text-on-surface-variant font-semibold">
+                                                    {user.role}
+                                                </span>
+                                                <div className="flex items-center gap-1.5">
+                                                    <div className={`led-indicator ${user.mfaEnforced ? 'led-green' : 'led-orange'}`}></div>
+                                                    <span>MFA: {user.mfaEnforced ? 'On' : 'Off'}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
                             </div>
                         </section>
                     )}
@@ -768,18 +941,18 @@ export default function SettingsCenter() {
                         <section className="space-y-4">
                             <div className="flex items-center justify-between">
                                 <h2 className="text-sm font-bold tracking-tight text-on-surface uppercase flex items-center gap-2">
-                                    <span className="material-symbols-outlined text-primary text-xl">hub</span>
+                                    <Share2 size={18} className="text-primary" />
                                     Integrations Hub
                                 </h2>
                                 <span className="font-mono-label text-[10px] text-outline uppercase">{activeIntegrationsCount} Active Integrations</span>
                             </div>
-                            <div className="grid grid-cols-3 gap-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                                 {/* Card: HRMS Core */}
                                 <div className="bg-surface-container-low border border-outline-variant rounded-xl p-4 hover:border-primary/50 transition-colors flex flex-col justify-between">
                                     <div>
                                         <div className="flex items-center justify-between mb-4">
                                             <div className="w-9 h-9 bg-white/5 rounded-lg flex items-center justify-center border border-outline-variant shrink-0">
-                                                <span className="material-symbols-outlined text-primary text-lg">lan</span>
+                                                <Database size={16} className="text-primary" />
                                             </div>
                                             <div className="flex items-center gap-1.5">
                                                 <div className="led-indicator led-green animate-pulse"></div>
@@ -805,7 +978,7 @@ export default function SettingsCenter() {
                                     <div>
                                         <div className="flex items-center justify-between mb-4">
                                             <div className="w-9 h-9 bg-white/5 rounded-lg flex items-center justify-center border border-outline-variant shrink-0">
-                                                <span className="material-symbols-outlined text-primary text-lg">chat_bubble</span>
+                                                <MessageSquare size={16} className="text-primary" />
                                             </div>
                                             <div className="flex items-center gap-1.5">
                                                 <div className={`led-indicator ${slackConnected ? 'led-blue' : 'led-orange'}`}></div>
@@ -836,7 +1009,7 @@ export default function SettingsCenter() {
                                     <div>
                                         <div className="flex items-center justify-between mb-4">
                                             <div className="w-9 h-9 bg-white/5 rounded-lg flex items-center justify-center border border-outline-variant shrink-0">
-                                                <span className="material-symbols-outlined text-primary text-lg">video_call</span>
+                                                <Video size={16} className="text-primary" />
                                             </div>
                                             <div className="flex items-center gap-1.5">
                                                 <div className={`led-indicator ${teamsConnected ? 'led-blue' : 'led-orange'}`}></div>
@@ -872,10 +1045,10 @@ export default function SettingsCenter() {
                         <section className="bg-surface-container-low border border-outline-variant rounded-xl overflow-hidden shadow-sm mt-6">
                             <div className="p-4 border-b border-outline-variant bg-surface-container/30 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                                 <div className="flex items-center gap-3">
-                                    <span className="material-symbols-outlined text-primary text-xl">gavel</span>
+                                    <Scale size={18} className="text-primary" />
                                     <h2 className="text-sm font-bold tracking-tight text-on-surface uppercase font-mono-label">Compliance Audit Trail (SOC 2)</h2>
                                 </div>
-                                <div className="flex items-center gap-2 w-full md:w-auto">
+                                <div className="flex items-center gap-2 w-full md:w-auto flex-wrap">
                                     <input 
                                         type="text" 
                                         placeholder="Search action logs..." 
@@ -898,9 +1071,18 @@ export default function SettingsCenter() {
                                         <option value="admin">Admin</option>
                                         <option value="hr">HR</option>
                                     </select>
+                                    {auditLogs.length > 0 && (
+                                        <button
+                                            onClick={handleClearAuditTrail}
+                                            className="px-2.5 py-1 bg-error/15 hover:bg-error text-error hover:text-white border border-error/30 rounded text-xs font-mono-label font-bold transition-colors cursor-pointer"
+                                        >
+                                            Clear All Logs
+                                        </button>
+                                    )}
                                 </div>
                             </div>
-                            <div className="overflow-x-auto">
+                            {/* Desktop Table View */}
+                            <div className="hidden sm:block overflow-x-auto">
                                 <table className="w-full text-left border-collapse">
                                     <thead>
                                         <tr className="border-b border-outline-variant bg-surface-bright/10">
@@ -937,6 +1119,35 @@ export default function SettingsCenter() {
                                     </tbody>
                                 </table>
                             </div>
+
+                            {/* Mobile Card Stack View (Zero Horizontal Scroll) */}
+                            <div className="sm:hidden divide-y divide-outline-variant/20 p-2">
+                                {auditLogs.length === 0 ? (
+                                    <div className="p-4 text-center text-xs text-on-surface-variant font-mono-label">
+                                        No audit trail logs found.
+                                    </div>
+                                ) : (
+                                    auditLogs.map(log => (
+                                        <div key={log.id} className="p-3 space-y-2 bg-surface-bright/5 rounded-lg my-1.5 border border-outline-variant/30 text-xs">
+                                            <div className="flex items-center justify-between">
+                                                <div>
+                                                    <div className="font-bold text-on-surface">{log.userName || 'Unknown'}</div>
+                                                    <div className="text-[10px] font-mono-label text-on-surface-variant">{log.userId}</div>
+                                                </div>
+                                                <span className="px-2 py-0.5 bg-surface-bright/50 rounded border border-outline-variant text-[10px] font-semibold text-on-surface-variant uppercase">
+                                                    {log.role}
+                                                </span>
+                                            </div>
+                                            <div className="font-mono-label text-[10px] text-primary bg-primary/10 p-1.5 rounded border border-primary/20">
+                                                {log.actionSummary}
+                                            </div>
+                                            <div className="text-[9px] font-mono-label text-on-surface-variant text-right">
+                                                {new Date(log.timestamp).toLocaleString()}
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
                             
                             {/* Pagination controls */}
                             <div className="p-4 border-t border-outline-variant/30 flex items-center justify-between bg-surface-container/10">
@@ -965,7 +1176,7 @@ export default function SettingsCenter() {
                 </div>
 
                 {/* Right Column: System Health & Audit Feed */}
-                <aside className="w-80 p-container-padding flex flex-col gap-stack-md bg-[#0b0e15] shrink-0 border-l border-outline-variant overflow-y-auto">
+                <aside className="hidden xl:flex w-80 p-6 flex-col gap-6 bg-[#0b0e15] shrink-0 border-l border-outline-variant overflow-y-auto">
                     {/* System Health */}
                     <div className="bg-surface-container-low border border-outline-variant rounded-xl p-5 space-y-4 shadow-sm">
                         <div className="flex items-center justify-between">
@@ -973,7 +1184,7 @@ export default function SettingsCenter() {
                                 <Cpu size={12} className="text-primary" />
                                 System Health
                             </span>
-                            <span className="material-symbols-outlined text-primary text-sm">bolt</span>
+                            <Zap size={14} className="text-primary" />
                         </div>
                         <div className="space-y-4">
                             <div className="flex justify-between items-end">
@@ -1014,7 +1225,7 @@ export default function SettingsCenter() {
                                 <Shield size={12} className="text-error" />
                                 Security Status
                             </span>
-                            <span className="material-symbols-outlined text-error text-sm">shield</span>
+                            <ShieldAlert size={14} className="text-error" />
                         </div>
                         <div className="flex gap-3">
                             <div className="flex-1 text-center py-2 bg-secondary-bg rounded border border-outline-variant">
@@ -1071,6 +1282,11 @@ export default function SettingsCenter() {
                                 </button>
                             </div>
                             <form onSubmit={handleAddUserSubmit} className="p-5 space-y-4">
+                                {addUserError && (
+                                    <div className="p-2.5 bg-error/10 border border-error/30 rounded text-xs text-error font-mono-label">
+                                        {addUserError}
+                                    </div>
+                                )}
                                 <div className="space-y-1">
                                     <label className="block text-[10px] font-mono-label text-outline uppercase">User Name</label>
                                     <input 
@@ -1139,16 +1355,27 @@ export default function SettingsCenter() {
                                 <div className="pt-4 border-t border-outline-variant/20 flex gap-3">
                                     <button 
                                         type="button" 
-                                        onClick={() => setShowAddModal(false)}
-                                        className="flex-1 py-2 border border-outline-variant hover:bg-surface-bright text-xs font-bold rounded text-on-surface bg-transparent"
+                                        onClick={() => {
+                                            setShowAddModal(false);
+                                            setAddUserError(null);
+                                        }}
+                                        className="flex-1 py-2 border border-outline-variant hover:bg-surface-bright text-xs font-bold rounded text-on-surface bg-transparent cursor-pointer"
                                     >
                                         Cancel
                                     </button>
                                     <button 
                                         type="submit" 
-                                        className="flex-1 py-2 bg-primary hover:bg-primary-container text-on-primary text-xs font-bold rounded border-none"
+                                        disabled={isAddingUser}
+                                        className="flex-1 py-2 bg-primary hover:bg-primary-container disabled:opacity-50 text-on-primary text-xs font-bold rounded border-none cursor-pointer flex items-center justify-center gap-2"
                                     >
-                                        Save User
+                                        {isAddingUser ? (
+                                            <>
+                                                <Loader2 size={14} className="animate-spin" />
+                                                <span>Saving...</span>
+                                            </>
+                                        ) : (
+                                            <span>Save User</span>
+                                        )}
                                     </button>
                                 </div>
                             </form>

@@ -220,8 +220,11 @@ export const SystemProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
     };
 
-    eventSource.onerror = (err) => {
-      console.error('SSE connection error:', err);
+    eventSource.onerror = () => {
+      // Gracefully handle disconnects without flooding console when offline or backend restarting
+      if (eventSource.readyState === EventSource.CLOSED) {
+        eventSource.close();
+      }
     };
 
     return () => {
@@ -249,14 +252,14 @@ export const SystemProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         setRegisterLogs([]);
         setPendingEmployee(null);
         fetchLogs();
-      }, 1000);
+      }, 200);
       return () => clearTimeout(timeout);
     }
 
     const timer = setTimeout(() => {
       setRegisterLogs(prev => [...prev, registrationLogs[registerStep - 1]]);
       setRegisterStep(prev => prev + 1);
-    }, 700);
+    }, 150);
 
     return () => clearTimeout(timer);
   }, [isRegistering, registerStep, pendingEmployee]);
@@ -281,14 +284,14 @@ export const SystemProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         setPlaybookStep(0);
         setDeployLogs([]);
         fetchLogs();
-      }, 1000);
+      }, 200);
       return () => clearTimeout(timeout);
     }
 
     const timer = setTimeout(() => {
       setDeployLogs(prev => [...prev, steps[playbookStep - 1]]);
       setPlaybookStep(prev => prev + 1);
-    }, 700);
+    }, 150);
 
     return () => clearTimeout(timer);
   }, [deployingPlaybook, playbookStep, employees]);
@@ -330,14 +333,9 @@ export const SystemProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         setRegisterLogs(['[1/5] Opening database connection...']);
         setRegisterStep(1);
 
-        return new Promise((resolve) => {
-          const checkInterval = setInterval(() => {
-            if (!isRegistering && !pendingEmployee) {
-              clearInterval(checkInterval);
-              resolve(true);
-            }
-          }, 500);
-        });
+        // Ensure employees state is immediately refreshed from DB
+        await fetchEmployees();
+        return true;
       }
       return false;
     } catch (error: any) {

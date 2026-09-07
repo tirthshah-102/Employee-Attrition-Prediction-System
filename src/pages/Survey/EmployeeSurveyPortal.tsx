@@ -50,26 +50,26 @@ export const EmployeeSurveyPortal: React.FC = () => {
   };
 
   return (
-    <div className="p-6 max-w-4xl mx-auto space-y-8">
+    <div className="p-3 sm:p-6 max-w-4xl mx-auto space-y-6 sm:space-y-8">
       {/* Header card with gradient border */}
-      <div className="relative rounded-2xl bg-gradient-to-r from-blue-900/30 to-indigo-900/30 border border-blue-500/20 p-6 shadow-xl backdrop-blur-md">
-        <div className="flex items-center space-x-4">
-          <div className="bg-blue-500/10 p-3 rounded-lg border border-blue-500/30 text-blue-400">
-            <Sparkles className="w-6 h-6 animate-pulse" />
+      <div className="relative rounded-2xl bg-gradient-to-r from-blue-900/30 to-indigo-900/30 border border-blue-500/20 p-4 sm:p-6 shadow-xl backdrop-blur-md">
+        <div className="flex items-center space-x-3 sm:space-x-4">
+          <div className="bg-blue-500/10 p-2.5 sm:p-3 rounded-lg border border-blue-500/30 text-blue-400 shrink-0">
+            <Sparkles className="w-5 h-5 sm:w-6 sm:h-6 animate-pulse" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-white tracking-tight">Pulse Portal</h1>
+            <h1 className="text-lg sm:text-xl font-bold text-white tracking-tight">Pulse Portal</h1>
             <p className="text-xs text-slate-400">Welcome, {user?.name || 'Employee'}. Review your flight risk metrics, submit feedback, and view your custom mitigation strategy.</p>
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-8">
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-6 sm:gap-8">
         {/* Left Side: Survey Form */}
-        <div className="md:col-span-7 bg-secondary-bg border border-border-primary rounded-xl p-6 shadow-lg space-y-6">
+        <div className="md:col-span-7 bg-secondary-bg border border-border-primary rounded-xl p-4 sm:p-6 shadow-lg space-y-6">
           <div className="flex items-center space-x-2 border-b border-border-primary pb-3">
-            <ClipboardList className="w-4 h-4 text-accent-blue" />
-            <h2 className="text-sm font-bold text-slate-200 tracking-wider uppercase font-mono">Monthly Feedback Pulse</h2>
+            <ClipboardList className="w-4 h-4 text-accent-blue shrink-0" />
+            <h2 className="text-xs sm:text-sm font-bold text-slate-200 tracking-wider uppercase font-mono">Monthly Feedback Pulse</h2>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-5">

@@ -66,7 +66,11 @@ def stream_logs():
             except ValueError:
                 pass
 
-    return Response(event_generator(), mimetype="text/event-stream")
+    res = Response(event_generator(), mimetype="text/event-stream")
+    res.headers["Cache-Control"] = "no-cache, no-transform"
+    res.headers["X-Accel-Buffering"] = "no"
+    res.headers["Connection"] = "keep-alive"
+    return res
 
 # ── GET /api/v1/agent-logs ────────────────────────────────────────────────────
 @logs_bp.get("/")
@@ -101,4 +105,13 @@ def create_log():
         employee_id=data.get("employeeId")
     )
     return success({}, "Log created and dispatched", 201)
+
+
+# ── DELETE /api/v1/agent-logs ──────────────────────────────────────────────────
+@logs_bp.delete("/")
+@jwt_required()
+def clear_logs():
+    from app.db import raw_db
+    res = raw_db.agent_logs.delete_many({})
+    return success({"deletedCount": res.deleted_count}, "Agent logs cleared permanently")
 

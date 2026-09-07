@@ -19,7 +19,7 @@ export default function RightTacticalRail({ employee }: { employee: Employee | n
     }
 
     return (
-        <aside className="w-full xl:w-80 border-l border-outline-variant p-stack-md space-y-stack-md bg-surface-container-lowest/50 backdrop-blur-sm hidden xl:block">
+        <aside className="w-full xl:w-80 xl:border-l border-outline-variant p-4 space-y-4 bg-surface-container-lowest/50 backdrop-blur-sm rounded-xl">
             <div className="glass-panel rounded p-stack-md space-y-3">
                 <h4 className="font-mono-label text-[10px] text-on-surface-variant uppercase border-b border-outline-variant pb-2">Prediction Snapshot</h4>
                 <div className="space-y-4">

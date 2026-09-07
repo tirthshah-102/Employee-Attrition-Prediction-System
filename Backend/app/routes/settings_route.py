@@ -98,3 +98,33 @@ def get_audit_trail():
         "page": page,
         "limit": limit
     }, "Audit trail logs fetched successfully")
+
+
+@settings_bp.delete("/audit-trail")
+@jwt_required()
+def clear_audit_trail():
+    claims = get_jwt()
+    if claims.get("role") != "admin":
+        return error("Administrator access required", 403)
+    from app.db import raw_db
+    data = request.get_json(silent=True) or {}
+    log_ids = data.get("log_ids")
+    if log_ids:
+        from bson import ObjectId
+        obj_ids = []
+        for lid in log_ids:
+            try:
+                obj_ids.append(ObjectId(lid))
+            except Exception:
+                pass
+        res = raw_db.audit_logs.delete_many({
+            "$or": [
+                {"_id": {"$in": obj_ids}},
+                {"_id": {"$in": log_ids}},
+                {"id": {"$in": log_ids}}
+            ]
+        })
+        return success({"deletedCount": res.deleted_count}, f"Deleted {res.deleted_count} audit logs")
+    else:
+        res = raw_db.audit_logs.delete_many({})
+        return success({"deletedCount": res.deleted_count}, "All audit logs permanently cleared")

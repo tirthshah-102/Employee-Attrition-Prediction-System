@@ -1,10 +1,13 @@
+import io
 import random
+import re
 from datetime import datetime, timezone, timedelta
+from typing import Any, cast
 
 from flask import Blueprint, request
-from flask_jwt_extended import jwt_required, get_jwt
+from flask_jwt_extended import jwt_required, get_jwt, get_jwt_identity
 
-from app.db import db, get_user_id
+from app.db import db, raw_db, get_user_id
 from app.models.employee import Employee
 from app.models.log import AgentLog
 from app.models.history import RiskHistory, EmployeeHistory
@@ -47,53 +50,51 @@ def list_employees():
     sort   = args.get("sortBy", "probability")
     order  = args.get("order",  "desc")
 
-    from flask_jwt_extended import get_jwt_identity
     claims = get_jwt()
     org_id = claims.get("org_id", "org-comp-a")
     user_id = get_user_id(get_jwt_identity())
-    user = User.query.get(user_id)
-    if not user:
-        return error("User session invalid or expired", 401)
+    user = User.query.get(user_id) if user_id else None
+    role = user.role if user else claims.get("role", "admin")
 
-    q = Employee.query.filter_by(is_active=True, organization_id=org_id)
-
-    if user.role == "manager":
+    # Match active employees flexibly without strictly excluding documents with missing org_id or default tags
+    if role in ("admin", "hr"):
+        q = Employee.query.filter({
+            "is_active": {"$ne": False},
+            "$or": [
+                {"organization_id": org_id},
+                {"organization_id": None},
+                {"organization_id": {"$exists": False}},
+                {"organization_id": "org-comp-a"}
+            ]
+        })
+    elif role == "manager":
         mgr_dept = getattr(user, "department", None)
         if mgr_dept:
             import re
-            q = q.filter({"dept": {"$regex": f"^{re.escape(mgr_dept)}$", "$options": "i"}})
+            q = Employee.query.filter({
+                "is_active": {"$ne": False},
+                "dept": {"$regex": f"^{re.escape(mgr_dept)}$", "$options": "i"}
+            })
         else:
-            name_parts = user.name.split() if user.name else []
-            first_name = name_parts[0] if name_parts else ""
-            if first_name:
-                emp = Employee.query.filter(
-                    Employee.organization_id == org_id,
-                    db.or_(Employee.email == user.email, Employee.name.ilike(f"%{first_name}%"))
-                ).first()
-            else:
-                emp = Employee.query.filter(
-                    Employee.organization_id == org_id,
-                    Employee.email == user.email
-                ).first()
+            emp = Employee.query.filter({"email": user.email}).first()
             if emp:
-                q = q.filter_by(dept=emp.dept)
+                q = Employee.query.filter({
+                    "is_active": {"$ne": False},
+                    "dept": emp.dept
+                })
+            else:
+                q = Employee.query.filter({"is_active": {"$ne": False}})
     elif user.role == "employee":
-        name_parts = user.name.split() if user.name else []
-        first_name = name_parts[0] if name_parts else ""
-        if first_name:
-            emp = Employee.query.filter(
-                Employee.organization_id == org_id,
-                db.or_(Employee.email == user.email, Employee.name.ilike(f"%{first_name}%"))
-            ).first()
-        else:
-            emp = Employee.query.filter(
-                Employee.organization_id == org_id,
-                Employee.email == user.email
-            ).first()
+        emp = Employee.query.filter({"email": user.email}).first()
         if emp:
-            q = q.filter_by(employee_id=emp.employee_id)
+            q = Employee.query.filter({
+                "employee_id": emp.employee_id,
+                "is_active": {"$ne": False}
+            })
         else:
-            q = q.filter({"_id": "-1"})
+            q = Employee.query.filter({"_id": "-1"})
+    else:
+        q = Employee.query.filter({"is_active": {"$ne": False}})
 
     if status and status != "All":
         q = q.filter_by(status=status)
@@ -110,8 +111,11 @@ def list_employees():
         )
 
     # Sorting
-    sort_col = getattr(Employee, sort, Employee.probability)
-    q = q.order_by(sort_col.desc() if order == "desc" else sort_col.asc())
+    sort_col: Any = getattr(Employee, sort, Employee.probability)
+    if hasattr(sort_col, "desc") and hasattr(sort_col, "asc"):
+        q = q.order_by(sort_col.desc() if order == "desc" else sort_col.asc())
+    else:
+        q = q.order_by(Employee.probability.desc() if order == "desc" else Employee.probability.asc())
 
     total = q.count()
     rows  = q.offset((page - 1) * limit).limit(limit).all()
@@ -127,7 +131,6 @@ def list_employees():
 @employees_bp.get("/<employee_id>")
 @jwt_required()
 def get_employee(employee_id: str):
-    from flask_jwt_extended import get_jwt_identity
     claims = get_jwt()
     org_id = claims.get("org_id", "org-comp-a")
     user_id = get_user_id(get_jwt_identity())
@@ -136,6 +139,15 @@ def get_employee(employee_id: str):
         return error("User session invalid or expired", 401)
 
     emp = Employee.query.filter_by(employee_id=employee_id, is_active=True, organization_id=org_id).first()
+    if not emp:
+        from bson import ObjectId
+        try:
+            emp = Employee.query.filter({"_id": ObjectId(employee_id), "is_active": True, "organization_id": org_id}).first()
+        except Exception:
+            emp = None
+    if not emp:
+        emp = Employee.query.filter({"_id": employee_id, "is_active": True, "organization_id": org_id}).first()
+
     if not emp:
         return error("Employee not found", 404)
 
@@ -182,9 +194,13 @@ def create_employee():
         return error("Not authorised", 403)
 
     try:
-        validated_data = EmployeeSchema().load(request.get_json(silent=True) or {})
+        validated_data = cast(dict[str, Any], EmployeeSchema().load(request.get_json(silent=True) or {}))
     except ValidationError as err:
-        return error(", ".join([f"{k}: {'; '.join(v)}" for k, v in err.messages.items()]), 400)
+        if isinstance(err.messages, dict):
+            err_msg = ", ".join([f"{k}: {'; '.join(v)}" if isinstance(v, list) else f"{k}: {v}" for k, v in err.messages.items()])
+        else:
+            err_msg = str(err.messages)
+        return error(err_msg, 400)
 
     # Use validated_data dictionary
     data = validated_data
@@ -257,6 +273,12 @@ def create_employee():
     except Exception as e:
         print(f"Orchestrator failed: {e}")
 
+    try:
+        from app.services.csv_engine import CsvEngine
+        CsvEngine.instance().reload_from_db()
+    except Exception as e:
+        print(f"CsvEngine reload failed: {e}")
+
     return success({"employee": emp.to_dict()}, "Employee registered", 201)
 
 
@@ -269,17 +291,29 @@ def update_employee(employee_id: str):
     if claims.get("role") not in ("hr", "admin", "manager"):
         return error("Not authorised", 403)
 
-    emp  = Employee.query.filter_by(employee_id=employee_id, is_active=True, organization_id=org_id).first()
+    emp = Employee.query.filter_by(employee_id=employee_id, is_active=True, organization_id=org_id).first()
+    if not emp:
+        from bson import ObjectId
+        try:
+            emp = Employee.query.filter({"_id": ObjectId(employee_id), "is_active": True, "organization_id": org_id}).first()
+        except Exception:
+            emp = None
+    if not emp:
+        emp = Employee.query.filter({"_id": employee_id, "is_active": True, "organization_id": org_id}).first()
+
     if not emp:
         return error("Employee not found", 404)
 
     try:
-        validated_data = EmployeeUpdateSchema().load(request.get_json(silent=True) or {})
+        validated_data = cast(dict[str, Any], EmployeeUpdateSchema().load(request.get_json(silent=True) or {}))
     except ValidationError as err:
-        return error(", ".join([f"{k}: {'; '.join(v)}" for k, v in err.messages.items()]), 400)
+        if isinstance(err.messages, dict):
+            err_msg = ", ".join([f"{k}: {'; '.join(v)}" if isinstance(v, list) else f"{k}: {v}" for k, v in err.messages.items()])
+        else:
+            err_msg = str(err.messages)
+        return error(err_msg, 400)
 
     data = validated_data
-    from flask_jwt_extended import get_jwt_identity
 
     # Check for manager change
     if "managerId" in data:
@@ -294,7 +328,7 @@ def update_employee(employee_id: str):
             new_name = new_mgr.name if new_mgr else "None"
             
             hist = EmployeeHistory(
-                employee_id=employee_id,
+                employee_id=emp.employee_id,
                 event_type="Manager Changed",
                 details=f"Reporting line moved from {old_name} ({old_mgr_id}) to {new_name} ({new_mgr_id})"
             )
@@ -306,7 +340,7 @@ def update_employee(employee_id: str):
                 user_name=claims.get("name", "HR Operator"),
                 role=claims.get("role", "hr"),
                 organization_id=org_id,
-                action_summary=f"Reassigned employee {emp.name} ({employee_id}) reporting manager to {new_name}."
+                action_summary=f"Reassigned employee {emp.name} ({emp.employee_id}) reporting manager to {new_name}."
             )
             audit.save()
 
@@ -324,34 +358,43 @@ def update_employee(employee_id: str):
                 # Log timeline history for dept and role promotions/transfers
                 if field == "dept":
                     hist = EmployeeHistory(
-                        employee_id=employee_id,
+                        employee_id=emp.employee_id,
                         event_type="Department Changed",
                         details=f"Department moved from {old_val} to {new_val}"
                     )
                     hist.save()
                 elif field == "role":
                     hist = EmployeeHistory(
-                        employee_id=employee_id,
+                        employee_id=emp.employee_id,
                         event_type="Promotion",
                         details=f"Role promoted/changed from {old_val} to {new_val}"
                     )
                     hist.save()
 
     # Re-derive risk if score inputs changed
-    if "overtimeHrs" in data or "salaryGap" in data:
-        emp.overtime_hrs = float(data.get("overtimeHrs", emp.overtime_hrs))
-        emp.salary_gap   = float(data.get("salaryGap",   emp.salary_gap))
+    if any(k in data for k in ("overtimeHrs", "salaryGap", "overtime_hrs", "salary_gap")):
+        ot_val = data.get("overtimeHrs") if "overtimeHrs" in data else data.get("overtime_hrs", emp.overtime_hrs)
+        sg_val = data.get("salaryGap") if "salaryGap" in data else data.get("salary_gap", emp.salary_gap)
+        emp.overtime_hrs = float(ot_val) if ot_val is not None else 0.0
+        emp.salary_gap   = float(sg_val) if sg_val is not None else 0.0
         emp.probability, emp.status = compute_new_employee_risk(emp.overtime_hrs, emp.salary_gap)
         emp.primary_factor = detect_primary_factor(emp.__dict__)
         
         hist = RiskHistory(
-            employee_id=employee_id,
+            employee_id=emp.employee_id,
             probability=emp.probability,
             status=emp.status
         )
         hist.save()
 
     emp.save()
+
+    try:
+        from app.services.csv_engine import CsvEngine
+        CsvEngine.instance().reload_from_db()
+    except Exception as e:
+        print(f"CsvEngine reload failed: {e}")
+
     return success({"employee": emp.to_dict()}, "Employee updated successfully")
 
 
@@ -364,6 +407,15 @@ def execute_playbook(employee_id: str):
         return error("Not authorised", 403)
 
     emp = Employee.query.filter_by(employee_id=employee_id).first()
+    if not emp:
+        from bson import ObjectId
+        try:
+            emp = Employee.query.filter({"_id": ObjectId(employee_id)}).first()
+        except Exception:
+            emp = None
+    if not emp:
+        emp = Employee.query.filter({"_id": employee_id}).first()
+
     if not emp:
         return error("Employee not found", 404)
 
@@ -410,7 +462,7 @@ def execute_playbook(employee_id: str):
     emp.playbook_status = "Executed"
 
     hist = RiskHistory(
-        employee_id=employee_id,
+        employee_id=emp.employee_id,
         probability=prob_after,
         status=new_status
     )
@@ -437,7 +489,7 @@ def execute_playbook(employee_id: str):
         {"source": "Playbooks", "text": f"[SUCCESS] Action plan applied for {emp.name}. Risk is lowering.", "type": "success", "employee_id": emp_id, "created_at": datetime.now(timezone.utc)},
     ]
     for row in log_rows:
-        row["employee_id"] = employee_id
+        row["employee_id"] = emp.employee_id
     _bulk_log(log_rows)
 
     # Trigger Orchestrator Agent evaluation
@@ -448,6 +500,12 @@ def execute_playbook(employee_id: str):
         print(f"Orchestrator failed: {e}")
 
     emp.save()
+
+    try:
+        from app.services.csv_engine import CsvEngine
+        CsvEngine.instance().reload_from_db()
+    except Exception as e:
+        print(f"CsvEngine reload failed: {e}")
 
     return success({
         "employee": emp.to_dict(),
@@ -466,6 +524,15 @@ def execute_playbook(employee_id: str):
 def update_kanban_status(employee_id: str):
     emp = Employee.query.filter_by(employee_id=employee_id).first()
     if not emp:
+        from bson import ObjectId
+        try:
+            emp = Employee.query.filter({"_id": ObjectId(employee_id)}).first()
+        except Exception:
+            emp = None
+    if not emp:
+        emp = Employee.query.filter({"_id": employee_id}).first()
+
+    if not emp:
         return error("Employee not found", 404)
     data = request.get_json(silent=True) or {}
     status = data.get("kanbanStatus")
@@ -474,30 +541,6 @@ def update_kanban_status(employee_id: str):
     emp.kanban_status = status
     emp.save()
     return success({"employee": emp.to_dict()}, "Kanban status updated successfully")
-
-
-# ── DELETE /api/v1/employees/<employee_id> ────────────────────────────────────
-@employees_bp.delete("/<employee_id>")
-@jwt_required()
-def delete_employee(employee_id: str):
-    claims = get_jwt()
-    if claims.get("role") not in ("hr", "admin"):
-        return error("Not authorised", 403)
-
-    emp = Employee.query.filter_by(employee_id=employee_id).first()
-    if not emp:
-        return error("Employee not found", 404)
-
-    # Delete associated sub-records
-    from app.db import raw_db
-    raw_db.risk_history.delete_many({"employee_id": employee_id})
-    raw_db.employee_history.delete_many({"employee_id": employee_id})
-    raw_db.pulse_surveys.delete_many({"employee_id": employee_id})
-    raw_db.agent_logs.delete_many({"employee_id": employee_id})
-
-    # Permanent delete
-    emp.delete()
-    return success({"id": employee_id}, "Employee and all associated records permanently deleted")
 
 
 # ── POST /api/v1/employees/bulk-delete ────────────────────────────────────────
@@ -514,13 +557,135 @@ def bulk_delete_employees():
         return error("No employee_ids provided", 400)
 
     from app.db import raw_db
+    from bson import ObjectId
+
+    obj_ids = []
+    for eid in employee_ids:
+        try:
+            obj_ids.append(ObjectId(eid))
+        except Exception:
+            pass
+
     raw_db.risk_history.delete_many({"employee_id": {"$in": employee_ids}})
     raw_db.employee_history.delete_many({"employee_id": {"$in": employee_ids}})
     raw_db.pulse_surveys.delete_many({"employee_id": {"$in": employee_ids}})
     raw_db.agent_logs.delete_many({"employee_id": {"$in": employee_ids}})
 
-    res = raw_db.employees.delete_many({"employee_id": {"$in": employee_ids}})
-    return success({"deletedCount": res.deleted_count}, f"Successfully bulk deleted {res.deleted_count} employees and all associated data")
+    res = raw_db.employees.delete_many({
+        "$or": [
+            {"employee_id": {"$in": employee_ids}},
+            {"_id": {"$in": obj_ids + employee_ids}}
+        ]
+    })
+
+    try:
+        from app.services.csv_engine import CsvEngine
+        CsvEngine.instance().reload_from_db()
+    except Exception as e:
+        print(f"CsvEngine reload failed: {e}")
+
+    return success({"deletedCount": res.deleted_count}, f"Successfully bulk deleted {res.deleted_count} employees permanently from database")
+
+
+# ── DELETE /api/v1/employees/all ──────────────────────────────────────────────
+@employees_bp.delete("/all")
+@jwt_required()
+def delete_all_employees():
+    claims = get_jwt()
+    if claims.get("role") not in ("hr", "admin"):
+        return error("Not authorised", 403)
+
+    from app.db import raw_db
+    res = raw_db.employees.delete_many({})
+    raw_db.risk_history.delete_many({})
+    raw_db.employee_history.delete_many({})
+    raw_db.pulse_surveys.delete_many({})
+    raw_db.agent_logs.delete_many({})
+
+    try:
+        from app.services.csv_engine import CsvEngine
+        CsvEngine.instance().reload_from_db()
+    except Exception as e:
+        print(f"CsvEngine reload failed: {e}")
+
+    return success({"deletedCount": res.deleted_count}, f"All {res.deleted_count} employees permanently deleted from database")
+
+
+# ── DELETE /api/v1/employees/clear-csv ────────────────────────────────────────
+@employees_bp.delete("/clear-csv")
+@jwt_required()
+def clear_csv_employees():
+    claims = get_jwt()
+    if claims.get("role") not in ("hr", "admin"):
+        return error("Not authorised", 403)
+
+    from app.db import raw_db
+    try:
+        res = raw_db.employees.delete_many({})
+        raw_db.risk_history.delete_many({})
+        raw_db.employee_history.delete_many({})
+        raw_db.pulse_surveys.delete_many({})
+
+        try:
+            from app.services.csv_engine import CsvEngine
+            CsvEngine.instance().reload_from_db()
+        except Exception as e:
+            print(f"CsvEngine reload failed: {e}")
+
+        return success({"deletedCount": res.deleted_count}, f"Successfully deleted {res.deleted_count} employees")
+    except Exception as e:
+        return error(f"Failed to delete all employees: {str(e)}", 500)
+
+
+# ── DELETE /api/v1/employees/<employee_id> ────────────────────────────────────
+@employees_bp.delete("/<employee_id>")
+@jwt_required()
+def delete_employee(employee_id: str):
+    claims = get_jwt()
+    if claims.get("role") not in ("hr", "admin"):
+        return error("Not authorised", 403)
+
+    from app.db import raw_db
+    from bson import ObjectId
+
+    # Find employee by employee_id or _id
+    emp = Employee.query.filter_by(employee_id=employee_id).first()
+    if not emp:
+        try:
+            emp = Employee.query.filter({"_id": ObjectId(employee_id)}).first()
+        except Exception:
+            emp = None
+    if not emp:
+        emp = Employee.query.filter({"_id": employee_id}).first()
+
+    matched_emp_id = emp.employee_id if emp else employee_id
+
+    # Delete associated sub-records
+    raw_db.risk_history.delete_many({"employee_id": {"$in": [employee_id, matched_emp_id]}})
+    raw_db.employee_history.delete_many({"employee_id": {"$in": [employee_id, matched_emp_id]}})
+    raw_db.pulse_surveys.delete_many({"employee_id": {"$in": [employee_id, matched_emp_id]}})
+    raw_db.agent_logs.delete_many({"employee_id": {"$in": [employee_id, matched_emp_id]}})
+
+    # Permanent delete from employees collection
+    res = raw_db.employees.delete_many({
+        "$or": [
+            {"employee_id": employee_id},
+            {"employee_id": matched_emp_id}
+        ]
+    })
+    if emp and emp.id:
+        try:
+            raw_db.employees.delete_many({"_id": ObjectId(emp.id)})
+        except Exception:
+            pass
+
+    try:
+        from app.services.csv_engine import CsvEngine
+        CsvEngine.instance().reload_from_db()
+    except Exception as e:
+        print(f"CsvEngine reload failed: {e}")
+
+    return success({"id": employee_id, "deletedCount": res.deleted_count}, "Employee and all associated records permanently deleted")
 
 
 
@@ -528,14 +693,13 @@ def bulk_delete_employees():
 @employees_bp.post("/bulk-import")
 @jwt_required()
 def bulk_import_employees():
-    import io
     import pandas as pd
     
     claims = get_jwt()
     org_id = claims.get("org_id", "org-comp-a")
     
     file = request.files.get("file")
-    if not file:
+    if not file or not file.filename:
         return error("No file provided", 400)
     
     filename = file.filename.lower()
@@ -544,13 +708,69 @@ def bulk_import_employees():
             df = pd.read_csv(io.BytesIO(file.read()))
         elif filename.endswith((".xls", ".xlsx")):
             df = pd.read_excel(io.BytesIO(file.read()))
+        elif filename.endswith(".pdf"):
+            import pypdf
+            pdf_reader = pypdf.PdfReader(io.BytesIO(file.read()))
+            all_text = ""
+            for page in pdf_reader.pages:
+                page_text = page.extract_text()
+                if page_text:
+                    all_text += page_text + "\n"
+            
+            lines = [l.strip() for l in all_text.splitlines() if l.strip()]
+            records = []
+            parsed_table = False
+            for line in lines:
+                if "," in line:
+                    parts = [p.strip() for p in line.split(",")]
+                    if len(parts) >= 3:
+                        records.append(parts)
+                        parsed_table = True
+                elif "\t" in line:
+                    parts = [p.strip() for p in line.split("\t")]
+                    if len(parts) >= 3:
+                        records.append(parts)
+                        parsed_table = True
+                elif "|" in line:
+                    parts = [p.strip() for p in line.split("|") if p.strip()]
+                    if len(parts) >= 3:
+                        records.append(parts)
+                        parsed_table = True
+            
+            if parsed_table and len(records) > 1:
+                header = records[0]
+                df = pd.DataFrame(records[1:], columns=header)
+            else:
+                name_match = re.search(r"(?:name|employee name|candidate)\s*[:=-]\s*([^\n\r,]+)", all_text, re.I)
+                email_match = re.search(r"[\w\.-]+@[\w\.-]+\.\w+", all_text)
+                dept_match = re.search(r"(?:department|dept|division|team)\s*[:=-]\s*([^\n\r,]+)", all_text, re.I)
+                role_match = re.search(r"(?:role|job title|position|title)\s*[:=-]\s*([^\n\r,]+)", all_text, re.I)
+                tenure_match = re.search(r"(?:tenure|years at company|experience)\s*[:=-]\s*(\d+(?:\.\d+)?)\s*(?:yrs|years)?", all_text, re.I)
+                salary_match = re.search(r"(?:salary|yearly income|income)\s*[:=-]?\s*\$?([\d,]+)", all_text, re.I)
+                
+                emp_name = name_match.group(1).strip() if name_match else (lines[0] if lines else "Imported Employee")
+                emp_email = email_match.group(0).strip() if email_match else f"{emp_name.lower().replace(' ', '')}@company.com"
+                emp_dept = dept_match.group(1).strip() if dept_match else "Operations"
+                emp_role = role_match.group(1).strip() if role_match else "Specialist"
+                emp_tenure = f"{tenure_match.group(1)} yrs" if tenure_match else "2.0 yrs"
+                emp_salary = salary_match.group(1).replace(",", "") if salary_match else "75000"
+                
+                df = pd.DataFrame([{
+                    "name": emp_name,
+                    "email": emp_email,
+                    "dept": emp_dept,
+                    "role": emp_role,
+                    "tenure": emp_tenure,
+                    "yearly_income": emp_salary,
+                    "overtime_hrs": 4,
+                    "salary_gap": 0
+                }])
         else:
-            return error("Unsupported file format. Please upload CSV or Excel.", 400)
+            return error("Unsupported file format. Please upload CSV, Excel, or PDF document.", 400)
     except Exception as e:
         return error(f"Failed to parse file: {str(e)}", 400)
     
     # Clear existing employees first so that only the uploaded CSV data shows up
-    from app.db import raw_db
     try:
         raw_db.employees.delete_many({})
     except Exception as e:
@@ -636,46 +856,55 @@ def bulk_import_employees():
         return error(f"Missing required columns. Must contain: {', '.join(required_cols)}", 400)
     
     imported_list = []
+    emp_docs = []
+    hist_docs = []
+    seen_emails = set()
+    used_eids = set()
+
     try:
+        def safe_float(val, default=0.0):
+            try:
+                if val is None:
+                    return default
+                v_str = str(val).strip().replace("%", "").replace("$", "")
+                if not v_str or v_str.lower() in ("nan", "null", "none", "n/a", "na"):
+                    return default
+                return float(v_str)
+            except Exception:
+                return default
+
+        def safe_int(val, default=0):
+            try:
+                if val is None:
+                    return default
+                v_str = str(val).strip().replace(",", "")
+                if not v_str or v_str.lower() in ("nan", "null", "none", "n/a", "na"):
+                    return default
+                return int(float(v_str))
+            except Exception:
+                return default
+
+        id_counter = 1000 + random.randint(100, 900)
+
         for _, row in df.iterrows():
-            email = str(row["email"]).strip()
+            email = str(row.get("email", "")).strip().lower()
             if not email or "@" not in email:
                 continue
-            if Employee.query.filter_by(email=email).first():
+            if email in seen_emails:
                 continue
-            
-            while True:
-                candidate_id = f"EMP-{random.randint(1000, 9999)}"
-                if not Employee.query.filter_by(employee_id=candidate_id).first():
-                    eid = candidate_id
-                    break
-            
-            def safe_float(val, default=0.0):
-                try:
-                    if val is None:
-                        return default
-                    v_str = str(val).strip().replace("%", "").replace("$", "")
-                    if not v_str or v_str.lower() in ("nan", "null", "none", "n/a", "na"):
-                        return default
-                    return float(v_str)
-                except Exception:
-                    return default
+            seen_emails.add(email)
 
-            def safe_int(val, default=0):
-                try:
-                    if val is None:
-                        return default
-                    v_str = str(val).strip().replace(",", "")
-                    if not v_str or v_str.lower() in ("nan", "null", "none", "n/a", "na"):
-                        return default
-                    return int(float(v_str))
-                except Exception:
-                    return default
+            id_counter += 1
+            eid = f"EMP-{id_counter}"
+            while eid in used_eids:
+                id_counter += 1
+                eid = f"EMP-{id_counter}"
+            used_eids.add(eid)
 
-            name = str(row["name"]).strip()
-            dept = str(row["dept"]).strip()
-            role = str(row["role"]).strip()
-            
+            name = str(row.get("name", "Employee")).strip()
+            dept = str(row.get("dept", "General")).strip()
+            role = str(row.get("role", "Staff")).strip()
+
             overtime_hrs = safe_float(row.get("overtime_hrs"), 0.0)
             overtime_text = str(row.get("overtime", "No")).strip()
             if overtime_text.lower() in ("yes", "y", "true") and overtime_hrs == 0.0:
@@ -687,7 +916,7 @@ def bulk_import_employees():
             location = str(row.get("location", "Remote")).strip()
             rating = safe_float(row.get("rating"), 3.5)
             yearly_income = safe_int(row.get("yearly_income"), 80000)
-            
+
             # Resolve probability and risk status
             csv_prob = row.get("attrition_score")
             if csv_prob is None or (isinstance(csv_prob, float) and pd.isna(csv_prob)):
@@ -713,57 +942,59 @@ def bulk_import_employees():
                 "tenure": "1.0 yrs",
                 "num_promotions": 1
             })
-            
-            emp = Employee(
-                employee_id=eid,
-                name=name,
-                email=email,
-                dept=dept,
-                role=role,
-                tenure="1.0 yrs",
-                probability=prob,
-                status=status_label,
-                primary_factor=primary_factor,
-                overtime_hrs=overtime_hrs,
-                salary_gap=salary_gap,
-                manager_feedback=manager_feedback,
-                growth_index=growth_index,
-                location=location,
-                rating=rating,
-                yearly_income=yearly_income,
-                kanban_status="NEW",
-                playbook_status="Ready",
-                organization_id=org_id
-            )
-            emp.save()
-            
-            # Seed 6 months of risk history
+
+            emp_dict = {
+                "employee_id": eid,
+                "name": name,
+                "email": email,
+                "dept": dept,
+                "role": role,
+                "tenure": "1.0 yrs",
+                "probability": float(prob),
+                "status": status_label,
+                "primary_factor": primary_factor,
+                "overtime_hrs": float(overtime_hrs),
+                "salary_gap": float(salary_gap),
+                "manager_feedback": float(manager_feedback),
+                "growth_index": float(growth_index),
+                "location": location,
+                "rating": float(rating),
+                "yearly_income": int(yearly_income),
+                "kanban_status": "NEW",
+                "playbook_status": "Ready",
+                "organization_id": org_id,
+                "is_active": True,
+                "created_at": datetime.now(timezone.utc)
+            }
+            emp_docs.append(emp_dict)
+            imported_list.append(emp_dict)
+
+            # Generate 6 months of risk history
             for month_offset in range(6, 0, -1):
                 recorded_at = datetime.now(timezone.utc) - timedelta(days=30 * month_offset)
                 volatility = random.uniform(-15.0, 10.0)
                 hist_prob = min(max(prob + volatility, 5.0), 98.0)
-                hist = RiskHistory(
-                    employee_id=eid,
-                    probability=round(hist_prob, 2),
-                    status="High" if hist_prob >= 65 else ("Medium" if hist_prob >= 35 else "Low"),
-                    recorded_at=recorded_at
-                )
-                hist.save()
-                
-            imported_list.append(emp)
-            
-        # Trigger orchestrator log cascade
-        from app.services.agents.hr_insights_agent import HRInsightsAgent
-        agent = HRInsightsAgent()
-        for emp in imported_list:
-            try:
-                agent.evaluate_employee(emp)
-            except Exception as ex:
-                print(f"Orchestrator log evaluation failed: {ex}")
-                
+                hist_docs.append({
+                    "employee_id": eid,
+                    "probability": round(hist_prob, 2),
+                    "status": "High" if hist_prob >= 65 else ("Medium" if hist_prob >= 35 else "Low"),
+                    "recorded_at": recorded_at
+                })
+
+        if emp_docs:
+            raw_db.employees.insert_many(emp_docs)
+        if hist_docs:
+            raw_db.risk_history.insert_many(hist_docs)
+
+        try:
+            from app.services.csv_engine import CsvEngine
+            CsvEngine.instance().reload_from_db()
+        except Exception as e:
+            print(f"CsvEngine reload failed: {e}")
+
         return success({
             "importedCount": len(imported_list),
-            "employees": [e.to_dict() for e in imported_list]
+            "employees": [emp.to_dict() for e in imported_list[:100] if (emp := Employee.from_dict(e)) is not None]
         }, f"Successfully imported {len(imported_list)} employees")
         
     except Exception as e:
@@ -775,6 +1006,15 @@ def bulk_import_employees():
 @jwt_required()
 def save_manager_notes(employee_id: str):
     emp = Employee.query.filter_by(employee_id=employee_id).first()
+    if not emp:
+        from bson import ObjectId
+        try:
+            emp = Employee.query.filter({"_id": ObjectId(employee_id)}).first()
+        except Exception:
+            emp = None
+    if not emp:
+        emp = Employee.query.filter({"_id": employee_id}).first()
+
     if not emp:
         return error("Employee not found", 404)
         
@@ -796,7 +1036,7 @@ def save_manager_notes(employee_id: str):
     if tags:
         log_text = f"[Diagnosis Agent] Text Mining: Manager notes highlight risk drivers: {', '.join(tags)}"
         from app.routes.logs import dispatch_log
-        dispatch_log(source="Diagnosis", text=log_text, log_type="warning", employee_id=employee_id)
+        dispatch_log(source="Diagnosis", text=log_text, log_type="warning", employee_id=emp.employee_id)
         
     emp.save()
     return success({
@@ -809,7 +1049,21 @@ def save_manager_notes(employee_id: str):
 @employees_bp.get("/<employee_id>/risk-history")
 @jwt_required()
 def get_employee_risk_history(employee_id: str):
-    history = RiskHistory.query.filter_by(employee_id=employee_id).order_by(RiskHistory.recorded_at.asc()).all()
+    emp = Employee.query.filter_by(employee_id=employee_id).first()
+    if not emp:
+        from bson import ObjectId
+        try:
+            emp = Employee.query.filter({"_id": ObjectId(employee_id)}).first()
+        except Exception:
+            emp = None
+    if not emp:
+        emp = Employee.query.filter({"_id": employee_id}).first()
+
+    matched_ids = [employee_id]
+    if emp and emp.employee_id and emp.employee_id not in matched_ids:
+        matched_ids.append(emp.employee_id)
+
+    history = RiskHistory.query.filter({"employee_id": {"$in": matched_ids}}).order_by(RiskHistory.recorded_at.asc()).all()
     return success({"history": [h.to_dict() for h in history]}, "Employee risk history fetched successfully")
 
 
@@ -817,9 +1071,6 @@ def get_employee_risk_history(employee_id: str):
 @employees_bp.post("/pulse-survey")
 @jwt_required()
 def submit_pulse_survey():
-    from flask_jwt_extended import get_jwt_identity
-    from app.models.pulse_survey import PulseSurvey
-
     claims = get_jwt()
     org_id = claims.get("org_id", "org-comp-a")
     user_id = get_user_id(get_jwt_identity())
@@ -876,8 +1127,9 @@ def submit_pulse_survey():
     sentiment_shift = 0.0
     if comments:
         try:
-            from textblob import TextBlob
-            blob = TextBlob(comments)
+            import importlib
+            tb = importlib.import_module("textblob")
+            blob = getattr(tb, "TextBlob")(comments)
             polarity = blob.sentiment.polarity
         except Exception:
             txt_l = comments.lower()
@@ -938,6 +1190,12 @@ def submit_pulse_survey():
     
     emp.save()
 
+    try:
+        from app.services.csv_engine import CsvEngine
+        CsvEngine.instance().reload_from_db()
+    except Exception as e:
+        print(f"CsvEngine reload failed: {e}")
+
     return success({
         "employee": emp.to_dict(),
         "survey": survey.to_dict()
@@ -951,35 +1209,36 @@ def get_employee_timeline(employee_id: str):
     claims = get_jwt()
     org_id = claims.get("org_id", "org-comp-a")
     
-    timeline = EmployeeHistory.query.filter_by(employee_id=employee_id).order_by(EmployeeHistory.timestamp.desc()).all()
+    emp = Employee.query.filter_by(employee_id=employee_id, organization_id=org_id).first()
+    if not emp:
+        from bson import ObjectId
+        try:
+            emp = Employee.query.filter({"_id": ObjectId(employee_id), "organization_id": org_id}).first()
+        except Exception:
+            emp = None
+    if not emp:
+        emp = Employee.query.filter({"_id": employee_id, "organization_id": org_id}).first()
+
+    matched_ids = [employee_id]
+    if emp and emp.employee_id and emp.employee_id not in matched_ids:
+        matched_ids.append(emp.employee_id)
+
+    timeline = EmployeeHistory.query.filter({"employee_id": {"$in": matched_ids}}).order_by(EmployeeHistory.timestamp.desc()).all()
     
-    if not timeline:
-        emp = Employee.query.filter_by(employee_id=employee_id, organization_id=org_id).first()
-        if emp:
-            hired_date = emp.date_hired or "Jan 01, 2024"
-            timeline = [
-                EmployeeHistory(
-                    employee_id=employee_id,
-                    event_type="Hired",
-                    details=f"Onboarded to the organization as {emp.role} in {emp.dept} department at {emp.location or 'SF Office'}.",
-                    timestamp=datetime.strptime(hired_date, "%b %d, %Y") if "," in hired_date else datetime.now(timezone.utc)
-                )
-            ]
-            timeline[0].save()
-            timeline = [timeline[0]]
+    if not timeline and emp:
+        hired_date = emp.date_hired or "Jan 01, 2024"
+        try:
+            dt = datetime.strptime(hired_date, "%b %d, %Y").replace(tzinfo=timezone.utc)
+        except Exception:
+            dt = datetime.now(timezone.utc)
+        initial_event = EmployeeHistory(
+            employee_id=emp.employee_id,
+            event_type="Hired",
+            details=f"Onboarded to the organization as {emp.role} in {emp.dept} department at {emp.location or 'SF Office'}.",
+            timestamp=dt
+        )
+        initial_event.save()
+        timeline = [initial_event]
             
     return success({"timeline": [t.to_dict() for t in timeline]}, "Employee timeline logs fetched successfully")
-
-
-# ── DELETE /api/v1/employees/clear-csv ────────────────────────────────────────
-@employees_bp.delete("/clear-csv")
-@jwt_required()
-def clear_csv_employees():
-    from app.db import raw_db
-    try:
-        # Delete all employees in the collection
-        res = raw_db.employees.delete_many({})
-        return success({"deletedCount": res.deleted_count}, f"Successfully deleted {res.deleted_count} employees")
-    except Exception as e:
-        return error(f"Failed to delete all employees: {str(e)}", 500)
 

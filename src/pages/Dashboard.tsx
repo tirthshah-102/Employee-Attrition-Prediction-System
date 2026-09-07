@@ -52,6 +52,11 @@ export function Dashboard() {
       });
   }, [employees]); // Reload if employees change (e.g. playbook executed)
 
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   // 1. Dynamic KPIs
   const totalNodes = dashboardData?.kpis?.total ?? employees.length;
   const highThreatCount = dashboardData?.kpis?.highRisk ?? employees.filter(e => e.status === 'High').length;
@@ -60,7 +65,6 @@ export function Dashboard() {
 
   const currentRiskIndex = dashboardData?.kpis?.currentRiskIndex ?? Math.max(16.2 - (executedPlaybooks * 0.95), 6.5).toFixed(1);
   const totalMitigationPercent = dashboardData?.kpis?.totalMitigationPct ?? ((16.2 - parseFloat(String(currentRiskIndex))) / 16.2 * 100).toFixed(0);
-
 
   // Dynamic trend data to reflect playbook executions in real time
   const trendData: { name: string; baseline: number; optimized: number }[] = dashboardData?.trendData ?? baseTrendData.map((d: any, index: number) => {
@@ -74,105 +78,122 @@ export function Dashboard() {
   });
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       
       {/* Dynamic Welcoming Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between pb-2 border-b border-border-primary/60">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-border-primary/60">
         <div>
-          <h1 className="text-2xl font-extrabold text-white tracking-tight flex items-center space-x-2">
+          <h1 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight flex items-center space-x-2">
             <span>Dashboard</span>
             <Sparkles className="w-5 h-5 text-indigo-400" />
           </h1>
           <p className="text-xs text-slate-400 mt-1">Real-time attrition monitoring and AI-driven mitigation recommendations.</p>
         </div>
-        <div className="mt-4 md:mt-0 font-mono text-[10px] text-slate-400 bg-secondary-bg/60 px-3 py-1.5 rounded-lg border border-border-primary/50 flex items-center space-x-2">
+        <div className="self-start sm:self-auto font-mono text-[10px] text-slate-400 bg-secondary-bg/60 px-3 py-1.5 rounded-lg border border-border-primary/50 flex items-center space-x-2">
           <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
           <span>SYSTEM LIVE & SECURE</span>
         </div>
       </div>
 
       {/* Executive KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
         
-        {/* Monitored Employees */}
-        <div className="bg-secondary-bg/50 border border-border-primary/60 p-5 rounded-xl hover:border-indigo-500/30 transition-all duration-300 shadow-md flex items-center justify-between">
-          <div className="space-y-1">
-            <span className="block text-[10px] font-bold uppercase text-slate-400 tracking-wider">
-              Monitored Employees
+        {/* Metric 1 */}
+        <div className="bg-secondary-bg/55 border border-border-primary/60 p-4 sm:p-5 rounded-xl flex flex-col justify-between space-y-4 shadow-sm hover:border-border-primary transition-colors">
+          <div className="flex justify-between items-start">
+            <span className="text-[10px] font-bold uppercase text-slate-400 font-mono tracking-wider">
+              Total Monitored Employees
             </span>
-            <span className="block text-2xl font-extrabold text-white tracking-tight">
-              {totalNodes}
-            </span>
-          </div>
-          <div className="p-3 bg-indigo-500/5 rounded-lg text-indigo-400 border border-indigo-500/10">
-            <Users className="w-5 h-5" />
-          </div>
-        </div>
-
-        {/* Projected Attrition Rate */}
-        <div className="bg-secondary-bg/50 border border-border-primary/60 p-5 rounded-xl hover:border-red-500/30 transition-all duration-300 shadow-md flex items-center justify-between">
-          <div className="space-y-1">
-            <span className="block text-[10px] font-bold uppercase text-slate-400 tracking-wider">
-              Projected Attrition Rate
-            </span>
-            <div className="flex items-baseline space-x-2">
-              <span className="text-2xl font-extrabold text-red-400 tracking-tight">
-                {currentRiskIndex}%
-              </span>
-              {executedPlaybooks > 0 && (
-                <span className="text-[10px] text-emerald-400 font-semibold flex items-center">
-                  <TrendingDown className="w-3 h-3 mr-0.5" /> -{totalMitigationPercent}%
-                </span>
-              )}
+            <div className="p-2 bg-blue-500/10 text-accent-blue rounded-lg border border-blue-500/20">
+              <Users className="w-4 h-4" />
             </div>
           </div>
-          <div className="p-3 bg-red-500/5 rounded-lg text-red-400 border border-red-500/10">
-            <Activity className="w-5 h-5" />
+          <div>
+            <div className="text-2xl sm:text-3xl font-extrabold tracking-tight font-sans text-white">
+              {totalNodes.toLocaleString()}
+            </div>
+            <div className="flex items-center text-[10px] font-mono text-[#22C55E] mt-1">
+              <span className="font-bold">100% Monitored</span>
+              <span className="text-slate-500 ml-1.5">Across All Departments</span>
+            </div>
           </div>
         </div>
 
-        {/* High Risk Employees */}
-        <div className="bg-secondary-bg/50 border border-border-primary/60 p-5 rounded-xl hover:border-amber-500/30 transition-all duration-300 shadow-md flex items-center justify-between">
-          <div className="space-y-1">
-            <span className="block text-[10px] font-bold uppercase text-slate-400 tracking-wider">
-              High Risk Employees
+        {/* Metric 2 */}
+        <div className="bg-secondary-bg/55 border border-border-primary/60 p-4 sm:p-5 rounded-xl flex flex-col justify-between space-y-4 shadow-sm hover:border-border-primary transition-colors">
+          <div className="flex justify-between items-start">
+            <span className="text-[10px] font-bold uppercase text-slate-400 font-mono tracking-wider">
+              High Risk Attrition Headcount
             </span>
-            <span className="block text-2xl font-extrabold text-amber-400 tracking-tight">
+            <div className="p-2 bg-red-500/10 text-red-400 rounded-lg border border-red-500/20">
+              <AlertTriangle className="w-4 h-4" />
+            </div>
+          </div>
+          <div>
+            <div className="text-2xl sm:text-3xl font-extrabold tracking-tight font-sans text-white">
               {highThreatCount}
-            </span>
-          </div>
-          <div className="p-3 bg-amber-500/5 rounded-lg text-amber-400 border border-amber-500/10">
-            <AlertTriangle className="w-5 h-5" />
+            </div>
+            <div className="flex items-center text-[10px] font-mono text-red-400 mt-1">
+              <TrendingDown className="w-3.5 h-3.5 mr-1" />
+              <span className="font-bold">Immediate Action Required</span>
+            </div>
           </div>
         </div>
 
-        {/* Mitigation Playbooks Run */}
-        <div className="bg-secondary-bg/50 border border-border-primary/60 p-5 rounded-xl hover:border-emerald-500/30 transition-all duration-300 shadow-md flex items-center justify-between">
-          <div className="space-y-1">
-            <span className="block text-[10px] font-bold uppercase text-slate-400 tracking-wider">
-              Mitigation Progress
+        {/* Metric 3 */}
+        <div className="bg-secondary-bg/55 border border-border-primary/60 p-4 sm:p-5 rounded-xl flex flex-col justify-between space-y-4 shadow-sm hover:border-border-primary transition-colors">
+          <div className="flex justify-between items-start">
+            <span className="text-[10px] font-bold uppercase text-slate-400 font-mono tracking-wider">
+              Projected Risk Index
             </span>
-            <span className="block text-2xl font-extrabold text-white tracking-tight">
-              {completionRate}%
-            </span>
+            <div className="p-2 bg-amber-500/10 text-amber-400 rounded-lg border border-amber-500/20">
+              <Activity className="w-4 h-4" />
+            </div>
           </div>
-          <div className="p-3 bg-emerald-500/5 rounded-lg text-emerald-400 border border-emerald-500/10">
-            <FileSpreadsheet className="w-5 h-5" />
+          <div>
+            <div className="text-2xl sm:text-3xl font-extrabold tracking-tight font-sans text-white">
+              {currentRiskIndex}%
+            </div>
+            <div className="flex items-center text-[10px] font-mono text-emerald-400 mt-1">
+              <span className="font-bold">-{totalMitigationPercent}%</span>
+              <span className="text-slate-500 ml-1.5">Mitigation Active</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Metric 4 */}
+        <div className="bg-secondary-bg/55 border border-border-primary/60 p-4 sm:p-5 rounded-xl flex flex-col justify-between space-y-4 shadow-sm hover:border-border-primary transition-colors">
+          <div className="flex justify-between items-start">
+            <span className="text-[10px] font-bold uppercase text-slate-400 font-mono tracking-wider">
+              Playbook Completion Rate
+            </span>
+            <div className="p-2 bg-emerald-500/10 text-emerald-400 rounded-lg border border-emerald-500/20">
+              <FileSpreadsheet className="w-4 h-4" />
+            </div>
+          </div>
+          <div>
+            <div className="text-2xl sm:text-3xl font-extrabold tracking-tight font-sans text-white">
+              {completionRate}%
+            </div>
+            <div className="flex items-center text-[10px] font-mono text-[#22C55E] mt-1">
+              <span className="font-bold">{executedPlaybooks} Executed</span>
+              <span className="text-slate-500 ml-1.5">by Autonomous Engine</span>
+            </div>
           </div>
         </div>
 
       </div>
 
-      {/* Main Grid: Attrition Forecast */}
+      {/* Main Analytics Graph */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
-        {/* Attrition forecast index area chart */}
-        <div className="lg:col-span-12 bg-secondary-bg/55 border border-border-primary/60 p-6 rounded-xl flex flex-col justify-between shadow-md">
+        {/* Attrition Optimization Forecast Chart */}
+        <div className="lg:col-span-12 bg-secondary-bg/55 border border-border-primary/60 p-4 sm:p-6 rounded-xl flex flex-col justify-between shadow-md">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
             <span className="text-xs font-bold uppercase text-slate-300 tracking-wider">
               Weekly Attrition Optimization Forecast
             </span>
-            <div className="flex items-center space-x-4 text-[10px] font-mono">
+            <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-[10px] font-mono">
               <span className="flex items-center text-slate-400">
                 <span className="w-2.5 h-2.5 bg-slate-600 rounded mr-1.5"></span> Baseline
               </span>
@@ -182,40 +203,46 @@ export function Dashboard() {
             </div>
           </div>
 
-          <div className="h-72 w-full">
-            <ResponsiveContainer width="100%" height={288} minWidth={0}>
-              <AreaChart data={trendData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="colorOptimized" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#6366F1" stopOpacity={0.35}/>
-                    <stop offset="95%" stopColor="#6366F1" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.02)" vertical={false} />
-                <XAxis dataKey="name" stroke="#94a3b8" fontSize={10} tickLine={false} tick={{ fontFamily: 'var(--font-sans)' }} />
-                <YAxis stroke="#94a3b8" fontSize={10} tickLine={false} tick={{ fontFamily: 'var(--font-sans)' }} />
-                <Tooltip 
-                  contentStyle={{ 
-                    backgroundColor: '#1e293b', 
-                    borderColor: '#334155',
-                    borderRadius: '8px',
-                    fontFamily: 'var(--font-sans)',
-                    fontSize: '12px',
-                    color: '#f8fafc',
-                    boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.3)'
-                  }} 
-                />
-                <Area type="monotone" dataKey="baseline" stroke="#475569" strokeWidth={1.5} fill="none" strokeDasharray="5 5" />
-                <Area type="monotone" dataKey="optimized" stroke="#6366F1" strokeWidth={2.5} fillOpacity={1} fill="url(#colorOptimized)" />
-              </AreaChart>
-            </ResponsiveContainer>
+          <div className="w-full min-w-0 h-[260px] sm:h-[280px] relative">
+            {mounted ? (
+              <ResponsiveContainer width="100%" height={260} minWidth={0} minHeight={240}>
+                <AreaChart data={trendData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="colorOptimized" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#6366F1" stopOpacity={0.35}/>
+                      <stop offset="95%" stopColor="#6366F1" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.02)" vertical={false} />
+                  <XAxis dataKey="name" stroke="#94a3b8" fontSize={10} tickLine={false} tick={{ fontFamily: 'var(--font-sans)' }} />
+                  <YAxis stroke="#94a3b8" fontSize={10} tickLine={false} tick={{ fontFamily: 'var(--font-sans)' }} />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: '#1e293b', 
+                      borderColor: '#334155',
+                      borderRadius: '8px',
+                      fontFamily: 'var(--font-sans)',
+                      fontSize: '12px',
+                      color: '#f8fafc',
+                      boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.3)'
+                    }} 
+                  />
+                  <Area type="monotone" dataKey="baseline" stroke="#475569" strokeWidth={1.5} fill="none" strokeDasharray="5 5" />
+                  <Area type="monotone" dataKey="optimized" stroke="#6366F1" strokeWidth={2.5} fillOpacity={1} fill="url(#colorOptimized)" />
+                </AreaChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-xs text-slate-500 font-mono">
+                Loading forecast visualization...
+              </div>
+            )}
           </div>
         </div>
 
       </div>
 
       {/* Critical Threat Profiles Quickview */}
-      <div className="bg-secondary-bg/55 border border-border-primary/60 p-6 rounded-xl space-y-4 shadow-md">
+      <div className="bg-secondary-bg/55 border border-border-primary/60 p-4 sm:p-6 rounded-xl space-y-4 shadow-md">
         <div className="flex items-center justify-between border-b border-border-primary/40 pb-3">
           <span className="text-xs font-bold uppercase text-slate-300 tracking-wider">
             High Attrition Risk Queue
@@ -229,7 +256,7 @@ export function Dashboard() {
           </button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
           {employees.filter(e => e.status === 'High').slice(0, 4).map((emp) => (
             <div 
               key={emp.id} 

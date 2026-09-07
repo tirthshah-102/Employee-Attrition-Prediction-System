@@ -152,9 +152,7 @@ export const DashboardLayout: React.FC = () => {
           
           {/* Logo block */}
           <div className="h-16 px-6 flex items-center space-x-3 border-b border-border-primary shrink-0">
-            <div className="border border-border-primary bg-elevated-bg p-1.5 rounded-md text-accent-blue">
-              <Shield className="w-4 h-4" />
-            </div>
+            <img src="/favicon.svg" alt="AttriSense Logo" className="w-6 h-6 object-contain" />
             <span className="font-bold text-sm tracking-tight text-slate-100">
               AttriSense <span className="text-accent-blue">AI</span>
             </span>
@@ -227,9 +225,7 @@ export const DashboardLayout: React.FC = () => {
         
         {/* Mobile brand logo */}
         <div className="flex items-center space-x-2.5">
-          <div className="border border-border-primary bg-elevated-bg p-1.5 rounded-md text-accent-blue">
-            <Shield className="w-4 h-4" />
-          </div>
+          <img src="/favicon.svg" alt="AttriSense Logo" className="w-6 h-6 object-contain" />
           <span className="font-bold text-sm tracking-tight text-slate-100">
             AttriSense <span className="text-accent-blue">AI</span>
           </span>
@@ -353,19 +349,19 @@ export const DashboardLayout: React.FC = () => {
         </div>
 
         {/* Dynamic routing page view portal */}
-        <main className="flex-grow p-6 transition-colors duration-200">
+        <main className="flex-grow p-3 sm:p-4 md:p-6 transition-colors duration-200 min-w-0">
           <Outlet />
         </main>
 
         {/* Standard simple footer */}
-        <footer className="h-12 bg-secondary-bg border-t border-border-primary px-6 flex items-center justify-between font-mono text-[9px] text-slate-500 shrink-0 transition-colors duration-200">
+        <footer className="h-12 bg-secondary-bg border-t border-border-primary px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between font-mono text-[9px] text-slate-500 shrink-0 transition-colors duration-200 py-2 sm:py-0">
           <span>&copy; 2026 AttriSense AI. All rights reserved.</span>
-          <span>System Roster // Version 2.4.0</span>
+          <span className="hidden sm:inline">System Roster // Version 2.4.0</span>
         </footer>
       </div>
 
       {/* 5. Floating Toast Status Overlay (Floating Bottom-Right for Ingestion Logs) */}
-      <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-3 max-w-sm w-80 font-mono text-[10px]">
+      <div className="fixed bottom-3 right-3 sm:bottom-4 sm:right-4 z-50 flex flex-col gap-3 max-w-[calc(100vw-1.5rem)] sm:w-80 font-mono text-[10px]">
         {/* Dynamic adding employee log overlay */}
         {isRegistering && (
           <div className="glass-panel p-4 rounded-xl border border-border-primary shadow-2xl space-y-2.5 transition-colors duration-200">
@@ -406,7 +402,7 @@ export const DashboardLayout: React.FC = () => {
       {/* Floating Notification Center Dropdown */}
       {notiOpen && (
         <div 
-          className="fixed top-16 right-4 lg:top-12 lg:right-6 z-50 w-80 bg-secondary-bg border border-border-primary rounded-xl shadow-2xl overflow-hidden font-mono"
+          className="fixed top-16 right-2 sm:right-4 lg:top-12 lg:right-6 z-50 w-[calc(100vw-1rem)] sm:w-80 bg-secondary-bg border border-border-primary rounded-xl shadow-2xl overflow-hidden font-mono"
           style={{
             animation: 'toastSlideIn 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
             boxShadow: '0 10px 40px rgba(0, 0, 0, 0.5)'
@@ -487,11 +483,11 @@ export const DashboardLayout: React.FC = () => {
       )}
 
       {showForceReset && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-primary-bg/90 backdrop-blur-md p-6 font-sans">
-          <div className="w-full max-w-md bg-secondary-bg border border-border-primary rounded-xl overflow-hidden shadow-2xl relative">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-primary-bg/90 backdrop-blur-md p-4 sm:p-6 font-sans overflow-y-auto">
+          <div className="w-full max-w-md bg-secondary-bg border border-border-primary rounded-xl overflow-hidden shadow-2xl relative max-h-[90vh] overflow-y-auto">
             <div className="absolute inset-x-0 top-0 h-1.5 bg-accent-blue"></div>
             
-            <div className="p-8 space-y-6">
+            <div className="p-5 sm:p-8 space-y-6">
               <div className="text-center">
                 <div className="inline-flex p-2.5 rounded bg-blue-500/10 border border-blue-500/20 text-accent-blue mb-3">
                   <Shield className="w-6 h-6" />

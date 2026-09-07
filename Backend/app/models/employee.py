@@ -134,8 +134,11 @@ class Employee:
                 db.employees.delete_one({"_id": ObjectId(self.id)})
             except Exception:
                 db.employees.delete_one({"_id": self.id})
-        elif self.employee_id:
+        if self.employee_id:
             db.employees.delete_one({"employee_id": self.employee_id})
+
+    def delete_doc(self):
+        self.delete()
 
 
     @staticmethod

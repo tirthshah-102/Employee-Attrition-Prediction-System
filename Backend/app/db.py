@@ -1,5 +1,6 @@
 import os
 import re
+from typing import Any
 from pymongo import MongoClient
 from dotenv import load_dotenv
 
@@ -8,8 +9,26 @@ load_dotenv()
 mongo_uri = os.getenv("MONGO_URI", "mongodb://localhost:27017/")
 db_name = os.getenv("MONGO_DB_NAME", "attrisense_db")
 
-client = MongoClient(mongo_uri)
+client = MongoClient(
+    mongo_uri, 
+    maxPoolSize=50, 
+    minPoolSize=5,
+    connectTimeoutMS=5000, 
+    serverSelectionTimeoutMS=5000,
+    socketTimeoutMS=10000,
+    retryWrites=True
+)
 raw_db = client[db_name]
+
+# Ensure background performance indexes
+try:
+    raw_db.employees.create_index([("employee_id", 1)], background=True)
+    raw_db.employees.create_index([("organization_id", 1)], background=True)
+    raw_db.users.create_index([("email", 1)], background=True)
+    raw_db.agent_logs.create_index([("timestamp", -1)], background=True)
+    raw_db.audit_logs.create_index([("timestamp", -1)], background=True)
+except Exception:
+    pass
 
 class MongoQueryProperty:
     def __init__(self, collection, model_class):
@@ -27,6 +46,8 @@ class MongoSession:
     def delete(self, obj):
         if hasattr(obj, 'delete_doc'):
             obj.delete_doc()
+        elif hasattr(obj, 'delete'):
+            obj.delete()
 
     def commit(self):
         pass
@@ -84,9 +105,9 @@ class MongoFieldExpr:
         return MongoBinaryExpr(self.name, {"$gt": other})
     def __lt__(self, other):
         return MongoBinaryExpr(self.name, {"$lt": other})
-    def __eq__(self, other):
+    def __eq__(self, other: Any) -> Any:  # type: ignore[override]
         return MongoBinaryExpr(self.name, other)
-    def __ne__(self, other):
+    def __ne__(self, other: Any) -> Any:  # type: ignore[override]
         return MongoBinaryExpr(self.name, {"$ne": other})
     def in_(self, other):
         return MongoBinaryExpr(self.name, {"$in": other})
@@ -205,9 +226,12 @@ class MongoQuery:
 
     def get(self, ident):
         from bson import ObjectId
+        doc = None
         try:
             doc = self.collection.find_one({"_id": ObjectId(ident)})
         except Exception:
+            pass
+        if not doc:
             doc = self.collection.find_one({"_id": ident})
         if not doc:
             try:
@@ -216,6 +240,10 @@ class MongoQuery:
                 pass
         if not doc:
             doc = self.collection.find_one({"id": str(ident)})
+        if not doc:
+            doc = self.collection.find_one({"employee_id": str(ident)})
+        if not doc:
+            doc = self.collection.find_one({"email": str(ident)})
         return self.model_class.from_dict(doc) if doc else None
 
 def get_user_id(identity):

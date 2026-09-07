@@ -2,6 +2,61 @@
 
 @import "tailwindcss";
 
+@theme {
+  --color-primary-bg: var(--primary-bg);
+  --color-secondary-bg: var(--secondary-bg);
+  --color-elevated-bg: var(--elevated-bg);
+  --color-border-primary: var(--border-primary);
+  --color-accent-blue: var(--accent-blue);
+  --color-accent-blue-glow: var(--accent-blue-glow);
+  --color-tactical-divider: var(--tactical-divider);
+  
+  --color-status-success: #10B981;
+  --color-status-warning: #F59E0B;
+  --color-status-danger: #EF4444;
+  --color-status-info: #06B6D4;
+  
+  --font-sans: 'Plus Jakarta Sans', 'Inter', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  /* Material Design 3 Design Tokens */
+  --color-primary: var(--accent-blue);
+  --color-on-primary: #ffffff;
+  --color-secondary: #38bdf8;
+  --color-tertiary: #fb923c;
+  --color-error: #f87171;
+  --color-background: var(--background-theme);
+  --color-surface: var(--surface-theme);
+  --color-on-surface: var(--on-surface-theme);
+  --color-on-surface-variant: var(--on-surface-variant-theme);
+  --color-surface-container: var(--surface-container-theme);
+  --color-surface-container-low: var(--surface-container-low-theme);
+  --color-surface-container-lowest: var(--surface-container-lowest-theme);
+  --color-surface-container-high: var(--surface-container-high-theme);
+  --color-surface-container-highest: var(--surface-container-highest-theme);
+  --color-outline-variant: var(--outline-variant-theme);
+
+  /* Custom Spacing & Layout Tokens */
+  --spacing-container-padding: 1.5rem;
+  --spacing-gutter: 1rem;
+  --spacing-stack-sm: 0.5rem;
+  --spacing-stack-md: 1rem;
+  --spacing-stack-lg: 1.5rem;
+
+  /* Typography Helper Tokens */
+  --font-headline-sm: 'Inter', sans-serif;
+  --font-mono-label: 'JetBrains Mono', monospace;
+  --text-headline-sm: 1.25rem;
+  --text-mono-label: 0.75rem;
+
+  /* Responsive Slate Text overrides */
+  --color-slate-100: var(--text-main);
+  --color-slate-200: var(--text-main);
+  --color-slate-300: var(--text-secondary);
+  --color-slate-400: var(--text-secondary);
+  --color-slate-500: var(--text-muted);
+}
+
 :root {
   --primary-bg: #070A13;
   --secondary-bg: #0D1220;
@@ -132,10 +187,6 @@ html.light .bg-accent-blue .text-white,
 html.light .bg-status-danger .text-white,
 html.light .bg-status-success .text-white,
 html.light .bg-status-info .text-white,
-html.light .bg-[#EF4444] .text-white,
-html.light .bg-[#ef4444] .text-white,
-html.light .bg-[#22C55E] .text-white,
-html.light .bg-[#3B82F6] .text-white,
 html.light .bg-blue-600 .text-white,
 html.light .bg-red-500 .text-white,
 html.light .bg-emerald-500 .text-white {
@@ -268,75 +319,56 @@ html.light .text-on-surface-variant.opacity-80 {
   color: var(--text-main) !important;
 }
 
+*, *::before, *::after {
+  box-sizing: border-box;
+}
 
-
-
-
-@theme {
-  --color-primary-bg: var(--primary-bg);
-  --color-secondary-bg: var(--secondary-bg);
-  --color-elevated-bg: var(--elevated-bg);
-  --color-border-primary: var(--border-primary);
-  --color-accent-blue: var(--accent-blue);
-  --color-accent-blue-glow: var(--accent-blue-glow);
-  --color-tactical-divider: var(--tactical-divider);
-  
-  --color-status-success: #10B981;
-  --color-status-warning: #F59E0B;
-  --color-status-danger: #EF4444;
-  --color-status-info: #06B6D4;
-  
-  --font-sans: 'Plus Jakarta Sans', 'Inter', sans-serif;
-  --font-mono: 'JetBrains Mono', monospace;
-
-  /* Material Design 3 Design Tokens */
-  --color-primary: var(--accent-blue);
-  --color-on-primary: #ffffff;
-  --color-secondary: #38bdf8;
-  --color-tertiary: #fb923c;
-  --color-error: #f87171;
-  --color-background: var(--background-theme);
-  --color-surface: var(--surface-theme);
-  --color-on-surface: var(--on-surface-theme);
-  --color-on-surface-variant: var(--on-surface-variant-theme);
-  --color-surface-container: var(--surface-container-theme);
-  --color-surface-container-low: var(--surface-container-low-theme);
-  --color-surface-container-lowest: var(--surface-container-lowest-theme);
-  --color-surface-container-high: var(--surface-container-high-theme);
-  --color-surface-container-highest: var(--surface-container-highest-theme);
-  --color-outline-variant: var(--outline-variant-theme);
-
-  /* Custom Spacing & Layout Tokens */
-  --spacing-container-padding: 1.5rem;
-  --spacing-gutter: 1rem;
-  --spacing-stack-sm: 0.5rem;
-  --spacing-stack-md: 1rem;
-  --spacing-stack-lg: 1.5rem;
-
-  /* Typography Helper Tokens */
-  --font-headline-sm: 'Inter', sans-serif;
-  --font-mono-label: 'JetBrains Mono', monospace;
-  --text-headline-sm: 1.25rem;
-  --text-mono-label: 0.75rem;
-
-  /* Responsive Slate Text overrides */
-  --color-slate-100: var(--text-main);
-  --color-slate-200: var(--text-main);
-  --color-slate-300: var(--text-secondary);
-  --color-slate-400: var(--text-secondary);
-  --color-slate-500: var(--text-muted);
+html {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: clip;
+  position: relative;
+  touch-action: pan-y;
+  overscroll-behavior-x: none;
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: clip;
+  position: relative;
+  touch-action: pan-y;
+  overscroll-behavior-x: none;
   background-color: var(--primary-bg);
   font-family: var(--font-sans);
   color: var(--text-main);
   margin: 0;
   padding: 0;
-  overflow-x: hidden;
   background-image: 
     radial-gradient(ellipse 80% 50% at 20% 10%, rgba(88, 101, 242, 0.05) 0%, transparent 60%),
     radial-gradient(ellipse 60% 40% at 80% 80%, rgba(6, 182, 212, 0.03) 0%, transparent 60%);
+}
+
+#root {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: clip;
+  position: relative;
+}
+
+/* Ensure no media or containers can trigger horizontal overflow */
+img, svg, canvas, video {
+  max-width: 100%;
+}
+
+/* Hide scrollbar utility for clean mobile horizontal tabs */
+.no-scrollbar::-webkit-scrollbar {
+  display: none !important;
+}
+.no-scrollbar {
+  -ms-overflow-style: none !important;
+  scrollbar-width: none !important;
 }
 
 /* Custom scrollbar to match dark tactical command center theme */
@@ -527,13 +559,25 @@ body {
   color: #c2c6d6;
 }
 
+/* ─── Snappy UI Transitions ────────────────────────────── */
+* {
+  transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.transition-all, 
+.transition-colors, 
+.transition-transform, 
+.transition-opacity {
+  transition-duration: 120ms !important;
+}
+
 /* ─── Card Hover Effects ──────────────────────────────── */
 .card-hover {
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .card-hover:hover {
-  transform: translateY(-3px) scale(1.005);
-  box-shadow: 0 20px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(173,198,255,0.1);
+  transform: translateY(-2px);
+  box-shadow: 0 12px 30px rgba(0,0,0,0.4), 0 0 0 1px rgba(173,198,255,0.15);
 }
 
 /* ─── Neon Underline ──────────────────────────────────── */
@@ -608,7 +652,7 @@ body {
 
 /* ─── Scrollbar Utility ────────────────────────────────── */
 .scrollbar-hide::-webkit-scrollbar { display: none; }
-.scrollbar-hide { -ms-overflow-style: none; scrollbar-behavior: hidden; }
+.scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
 
 /* ─── Keyframe Animations ─────────────────────────────────── */
 @keyframes pulse-green {

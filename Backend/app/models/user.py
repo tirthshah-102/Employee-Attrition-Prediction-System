@@ -13,6 +13,8 @@ class User:
     name: Any = MongoFieldExpr("name")
     email: Any = MongoFieldExpr("email")
     role: Any = MongoFieldExpr("role")
+    is_active: Any = MongoFieldExpr("is_active")
+    organization_id: Any = MongoFieldExpr("organization_id")
     query: Any = None
 
     def __init__(self, name, email, role="hr", organization_id="org-comp-a", is_active=True, mfa_enabled=False, mfa_secret=None, password=None, id=None, _id=None, last_login=None, created_at=None, department=None, needs_password_reset=False):

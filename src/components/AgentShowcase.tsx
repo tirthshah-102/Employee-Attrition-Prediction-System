@@ -159,29 +159,29 @@ export function AgentShowcase() {
   const [selectedAgent, setSelectedAgent] = useState<AgentInfo>(agentsData[0]);
 
   return (
-    <section id="agents" className="py-24 border-b border-border-primary/60 bg-secondary-bg/80">
-      <div className="max-w-7xl mx-auto px-6">
+    <section id="agents" className="py-16 sm:py-24 border-b border-border-primary/60 bg-secondary-bg/80">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6">
         
         {/* Section Header */}
-        <div className="text-center max-w-3xl mx-auto mb-16">
-          <div className="inline-flex items-center space-x-2 border border-blue-500/20 bg-blue-500/5 px-2.5 py-1 rounded text-xs font-mono tracking-wider text-accent-blue uppercase mb-4">
+        <div className="text-center max-w-3xl mx-auto mb-10 sm:mb-16">
+          <div className="inline-flex items-center space-x-2 border border-blue-500/20 bg-blue-500/5 px-2.5 py-1 rounded text-xs font-mono tracking-wider text-accent-blue uppercase mb-3 sm:mb-4">
             <Workflow className="w-3.5 h-3.5" />
             <span>AI Agent Network</span>
           </div>
-          <h2 className="text-3xl md:text-4xl font-bold tracking-tight text-white mb-4">
+          <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-white mb-3 sm:mb-4">
             Multi-Agent Architecture
           </h2>
-          <p className="text-slate-400 text-sm">
+          <p className="text-slate-400 text-xs sm:text-sm">
             AttriSense AI breaks down employee retention into five highly specialized, interconnected AI agents. Explore each agent's active responsibilities, system configurations, and simulated runtime console.
           </p>
         </div>
 
         {/* 12-Column Grid Layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-stretch">
           
           {/* Left Column (4 Cols): Agent Selector Buttons */}
           <div className="lg:col-span-4 space-y-3 flex flex-col justify-between">
-            <div className="space-y-3">
+            <div className="space-y-2.5 sm:space-y-3">
               <span className="block font-mono text-[9px] uppercase text-slate-500 tracking-wider mb-2">
                 Available AI Agents (5)
               </span>

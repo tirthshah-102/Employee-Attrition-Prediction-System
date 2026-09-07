@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { z } from 'zod';
 import { 
@@ -6,7 +6,9 @@ import {
   ChevronDown, 
   Plus, 
   Loader2,
-  Trash2
+  Trash2,
+  UploadCloud,
+  FileText
 } from 'lucide-react';
 import { useSystem } from '../context/SystemContext';
 import api from '../utils/api';
@@ -27,11 +29,17 @@ export function EmployeeListPage() {
   const navigate = useNavigate();
   const { 
     employees, 
+    setEmployees,
+    fetchEmployees,
     registerEmployee, 
     isRegistering, 
     registerLogs,
     isDataMasked
   } = useSystem();
+
+  useEffect(() => {
+    fetchEmployees();
+  }, []);
 
   const [directoryView, setDirectoryView] = useState<'browse' | 'add' | 'bulk'>('browse');
 
@@ -59,48 +67,47 @@ export function EmployeeListPage() {
   };
 
   const handleDeleteIndividual = async (id: string) => {
-    if (!window.confirm("Are you sure you want to permanently delete this employee and all their data?")) {
+    if (!window.confirm("Are you sure you want to permanently delete this employee and all their data from database?")) {
       return;
     }
     try {
       const res = await api.delete(`/employees/${id}`);
       if (res.data.success) {
-        window.dispatchEvent(new CustomEvent("app-toast", {
-          detail: { message: "Employee and all associated records permanently deleted.", type: "success" }
-        }));
+        setEmployees(prev => prev.filter(e => e.id !== id));
         setSelectedIds(prev => prev.filter(item => item !== id));
-        setTimeout(() => {
-          window.location.reload();
-        }, 1200);
+        window.dispatchEvent(new CustomEvent("app-toast", {
+          detail: { message: "Employee permanently deleted from database.", type: "success" }
+        }));
+        fetchEmployees();
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
       window.dispatchEvent(new CustomEvent("app-toast", {
-        detail: { message: "Failed to delete employee.", type: "warning" }
+        detail: { message: err.response?.data?.message || "Failed to delete employee.", type: "warning" }
       }));
     }
   };
 
   const handleDeleteBulk = async () => {
-    if (!window.confirm(`Are you sure you want to permanently delete the ${selectedIds.length} selected employees and all their data?`)) {
+    if (!window.confirm(`Are you sure you want to permanently delete all ${selectedIds.length} selected employees from database?`)) {
       return;
     }
     setIsDeleting(true);
     try {
       const res = await api.post("/employees/bulk-delete", { employee_ids: selectedIds });
       if (res.data.success) {
-        window.dispatchEvent(new CustomEvent("app-toast", {
-          detail: { message: `Successfully bulk deleted ${res.data.data.deletedCount} employees.`, type: "success" }
-        }));
+        const deletedSet = new Set(selectedIds);
+        setEmployees(prev => prev.filter(e => !deletedSet.has(e.id)));
         setSelectedIds([]);
-        setTimeout(() => {
-          window.location.reload();
-        }, 1200);
+        window.dispatchEvent(new CustomEvent("app-toast", {
+          detail: { message: `Successfully deleted ${res.data.data.deletedCount} employees permanently.`, type: "success" }
+        }));
+        fetchEmployees();
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
       window.dispatchEvent(new CustomEvent("app-toast", {
-        detail: { message: "Failed to bulk delete employees.", type: "warning" }
+        detail: { message: err.response?.data?.message || "Failed to bulk delete employees.", type: "warning" }
       }));
     } finally {
       setIsDeleting(false);
@@ -109,6 +116,19 @@ export function EmployeeListPage() {
 
   const handleFileSelected = (file: File) => {
     setSelectedFile(file);
+    const fname = file.name.toLowerCase();
+    if (fname.endsWith(".pdf")) {
+      setPreviewRows([
+        { "Document": file.name, "Format": "PDF Document", "Size": `${(file.size / 1024).toFixed(1)} KB`, "Status": "AI Roster Parsing Ready" }
+      ]);
+      return;
+    }
+    if (fname.endsWith(".xlsx") || fname.endsWith(".xls")) {
+      setPreviewRows([
+        { "Document": file.name, "Format": "Excel Spreadsheet", "Size": `${(file.size / 1024).toFixed(1)} KB`, "Status": "Structured Sheet Parsing Ready" }
+      ]);
+      return;
+    }
     const reader = new FileReader();
     reader.onload = (e) => {
       const text = e.target?.result as string;
@@ -136,16 +156,12 @@ export function EmployeeListPage() {
     formData.append("file", selectedFile);
 
     try {
-      const token = localStorage.getItem("attrisense_token") || "";
-      const baseUrl = (import.meta.env.VITE_API_URL || 'http://127.0.0.1:5000/api/v1').replace(/\/+$/, '');
-      const res = await fetch(`${baseUrl}/employees/bulk-import`, {
-        method: "POST",
+      const res = await api.post('/employees/bulk-import', formData, {
         headers: {
-          "Authorization": `Bearer ${token}`
-        },
-        body: formData
+          'Content-Type': 'multipart/form-data'
+        }
       });
-      const data = await res.json();
+      const data = res.data;
       if (data.success) {
         window.dispatchEvent(new CustomEvent("app-toast", {
           detail: { message: `Import Success: Registered ${data.data.importedCount} employees.`, type: "success" }
@@ -153,19 +169,17 @@ export function EmployeeListPage() {
         setSelectedFile(null);
         setPreviewRows([]);
         setDirectoryView('browse');
-        // Let's delay reload slightly to allow toast render
-        setTimeout(() => {
-          window.location.reload();
-        }, 1500);
+        await fetchEmployees();
       } else {
         window.dispatchEvent(new CustomEvent("app-toast", {
           detail: { message: data.message || "Failed to bulk import roster.", type: "warning" }
         }));
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      const msg = err.response?.data?.message || "Failed to bulk upload roster.";
       window.dispatchEvent(new CustomEvent("app-toast", {
-        detail: { message: "Network error during bulk upload.", type: "warning" }
+        detail: { message: msg, type: "warning" }
       }));
     } finally {
       setIsUploading(false);
@@ -254,50 +268,60 @@ export function EmployeeListPage() {
     <div className="space-y-6">
       
       {/* Local Navigation bar */}
-      <div className="flex justify-between items-center bg-secondary-bg/50 border border-border-primary/60 p-4 rounded">
-        <div className="flex items-center space-x-4">
+      <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 bg-secondary-bg/50 border border-border-primary/60 p-3 sm:p-4 rounded">
+        {/* On mobile: 3-column segmented grid, on sm+: flex bar */}
+        <div className="grid grid-cols-3 sm:flex items-center gap-1 sm:space-x-4 bg-primary-bg/60 sm:bg-transparent p-1 sm:p-0 rounded-lg w-full sm:w-auto">
           <button
             onClick={() => setDirectoryView('browse')}
-            className={`font-mono text-xs uppercase tracking-wider px-3 py-1.5 rounded transition-colors duration-150 cursor-pointer ${
-              directoryView === 'browse' ? 'text-[var(--text-main)] border-b-2 border-accent-blue font-bold' : 'text-slate-500 hover:text-slate-300'
+            className={`font-mono text-[11px] sm:text-xs uppercase tracking-wider py-2 sm:py-1.5 px-1 sm:px-3 rounded transition-all text-center cursor-pointer ${
+              directoryView === 'browse' 
+                ? 'bg-accent-blue sm:bg-transparent text-white font-bold sm:border-b-2 sm:border-accent-blue shadow-sm sm:shadow-none' 
+                : 'text-slate-400 hover:text-slate-200'
             }`}
           >
-            Employee List
+            <span className="sm:hidden">Roster</span>
+            <span className="hidden sm:inline">Employee List</span>
           </button>
           <button
             onClick={() => setDirectoryView('add')}
-            className={`font-mono text-xs uppercase tracking-wider px-3 py-1.5 rounded transition-colors duration-150 cursor-pointer ${
-              directoryView === 'add' ? 'text-[var(--text-main)] border-b-2 border-accent-blue font-bold' : 'text-slate-500 hover:text-slate-300'
+            className={`font-mono text-[11px] sm:text-xs uppercase tracking-wider py-2 sm:py-1.5 px-1 sm:px-3 rounded transition-all text-center cursor-pointer ${
+              directoryView === 'add' 
+                ? 'bg-accent-blue sm:bg-transparent text-white font-bold sm:border-b-2 sm:border-accent-blue shadow-sm sm:shadow-none' 
+                : 'text-slate-400 hover:text-slate-200'
             }`}
           >
-            Register New Employee
+            <span className="sm:hidden">+ New</span>
+            <span className="hidden sm:inline">Register Employee</span>
           </button>
           <button
             onClick={() => setDirectoryView('bulk')}
-            className={`font-mono text-xs uppercase tracking-wider px-3 py-1.5 rounded transition-colors duration-150 cursor-pointer ${
-              directoryView === 'bulk' ? 'text-[var(--text-main)] border-b-2 border-accent-blue font-bold' : 'text-slate-500 hover:text-slate-300'
+            className={`font-mono text-[11px] sm:text-xs uppercase tracking-wider py-2 sm:py-1.5 px-1 sm:px-3 rounded transition-all text-center cursor-pointer ${
+              directoryView === 'bulk' 
+                ? 'bg-accent-blue sm:bg-transparent text-white font-bold sm:border-b-2 sm:border-accent-blue shadow-sm sm:shadow-none' 
+                : 'text-slate-400 hover:text-slate-200'
             }`}
           >
-            Bulk Upload Roster
+            <span className="sm:hidden">Bulk</span>
+            <span className="hidden sm:inline">Bulk Upload</span>
           </button>
         </div>
 
         {directoryView === 'browse' && (
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-2 justify-end sm:flex-nowrap">
             {selectedIds.length > 0 && (
               <button
                 onClick={handleDeleteBulk}
                 disabled={isDeleting}
-                className="bg-red-500 hover:bg-red-600 text-white border border-red-500 hover:border-red-600 font-mono text-[10px] uppercase tracking-wider px-3 py-2 rounded transition-all duration-150 cursor-pointer disabled:opacity-50 flex items-center space-x-1.5"
+                className="flex-1 sm:flex-none bg-red-500 hover:bg-red-600 text-white border border-red-500 hover:border-red-600 font-mono text-[10px] uppercase tracking-wider px-3 py-2 rounded transition-all duration-150 cursor-pointer disabled:opacity-50 flex items-center justify-center space-x-1.5"
               >
                 <Trash2 className="w-3.5 h-3.5" />
-                <span>Delete Selected ({selectedIds.length})</span>
+                <span>Delete ({selectedIds.length})</span>
               </button>
             )}
 
             <button
               onClick={() => setDirectoryView('add')}
-              className="bg-accent-blue hover:bg-blue-600 text-white font-mono text-[10px] uppercase tracking-wider px-3 py-2 rounded flex items-center space-x-1 cursor-pointer transition-all duration-150"
+              className="hidden sm:flex bg-accent-blue hover:bg-blue-600 text-white font-mono text-[10px] uppercase tracking-wider px-3 py-2 rounded items-center space-x-1 cursor-pointer transition-all duration-150"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>Register Employee</span>
@@ -308,10 +332,10 @@ export function EmployeeListPage() {
 
       {directoryView === 'browse' ? (
         /* Search filters + directory roster list */
-        <div className="bg-secondary-bg/50 border border-border-primary/60 rounded p-6 space-y-6">
+        <div className="bg-secondary-bg/50 border border-border-primary/60 rounded p-4 sm:p-6 space-y-4 sm:space-y-6">
           
           {/* Roster Controls */}
-          <div className="flex flex-col lg:flex-row items-center justify-between gap-4 font-mono text-xs border-b border-white/5 pb-5">
+          <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 sm:gap-4 font-mono text-xs border-b border-white/5 pb-4 sm:pb-5">
             <div className="relative w-full lg:w-80">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
                 <Search className="w-4 h-4" />
@@ -321,63 +345,63 @@ export function EmployeeListPage() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search by name, role, or ID..."
-                className="w-full bg-primary-bg border border-border-primary/60 rounded text-[11px] px-9 py-2.5 text-[var(--text-main)] placeholder-slate-600 focus:outline-none focus:border-accent-blue"
+                className="w-full bg-primary-bg border border-border-primary/60 rounded text-[11px] pl-9 pr-4 py-2.5 text-[var(--text-main)] placeholder-slate-600 focus:outline-none focus:border-accent-blue"
               />
             </div>
 
-            <div className="flex flex-wrap items-center justify-end gap-3 w-full lg:w-auto text-[10px]">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3 w-full lg:w-auto text-[10px]">
               {/* Dept Filter */}
               <div className="flex items-center space-x-1.5">
-                <span className="text-slate-500 font-semibold">Department:</span>
-                <div className="relative">
+                <span className="text-slate-500 font-semibold shrink-0">Dept:</span>
+                <div className="relative flex-1">
                   <select
                     value={deptFilter}
                     onChange={(e) => setDeptFilter(e.target.value)}
-                    className="bg-primary-bg border border-border-primary/60 rounded pl-2.5 pr-7 py-1.5 text-slate-300 focus:outline-none focus:border-accent-blue appearance-none cursor-pointer uppercase font-mono"
+                    className="w-full bg-primary-bg border border-border-primary/60 rounded pl-2.5 pr-7 py-2 text-slate-300 focus:outline-none focus:border-accent-blue appearance-none cursor-pointer uppercase font-mono text-[11px]"
                   >
-                    <option value="All">All Departments</option>
+                    <option value="All">All Depts</option>
                     <option value="Engineering">Engineering</option>
                     <option value="Sales & BD">Sales & BD</option>
                     <option value="Product Management">Product</option>
                     <option value="Marketing">Marketing</option>
                   </select>
-                  <ChevronDown className="w-3 h-3 text-slate-500 absolute right-2 top-2 pointer-events-none" />
+                  <ChevronDown className="w-3 h-3 text-slate-500 absolute right-2 top-3 pointer-events-none" />
                 </div>
               </div>
 
               {/* Risk Filter */}
               <div className="flex items-center space-x-1.5">
-                <span className="text-slate-500 font-semibold">Risk:</span>
-                <div className="relative">
+                <span className="text-slate-500 font-semibold shrink-0">Risk:</span>
+                <div className="relative flex-1">
                   <select
                     value={statusFilter}
                     onChange={(e) => setStatusFilter(e.target.value as any)}
-                    className="bg-primary-bg border border-border-primary/60 rounded pl-2.5 pr-7 py-1.5 text-slate-300 focus:outline-none focus:border-accent-blue appearance-none cursor-pointer uppercase font-mono"
+                    className="w-full bg-primary-bg border border-border-primary/60 rounded pl-2.5 pr-7 py-2 text-slate-300 focus:outline-none focus:border-accent-blue appearance-none cursor-pointer uppercase font-mono text-[11px]"
                   >
-                    <option value="All">All Risk States</option>
+                    <option value="All">All Risks</option>
                     <option value="High">High Risk</option>
                     <option value="Medium">Medium Risk</option>
                     <option value="Low">Low Risk</option>
                   </select>
-                  <ChevronDown className="w-3 h-3 text-slate-500 absolute right-2 top-2 pointer-events-none" />
+                  <ChevronDown className="w-3 h-3 text-slate-500 absolute right-2 top-3 pointer-events-none" />
                 </div>
               </div>
 
               {/* Sorter */}
               <div className="flex items-center space-x-1.5">
-                <span className="text-slate-500 font-semibold">Sort:</span>
-                <div className="relative">
+                <span className="text-slate-500 font-semibold shrink-0">Sort:</span>
+                <div className="relative flex-1">
                   <select
                     value={sortBy}
                     onChange={(e) => setSortBy(e.target.value as any)}
-                    className="bg-primary-bg border border-border-primary/60 rounded pl-2.5 pr-7 py-1.5 text-slate-300 focus:outline-none focus:border-accent-blue appearance-none cursor-pointer uppercase font-mono"
+                    className="w-full bg-primary-bg border border-border-primary/60 rounded pl-2.5 pr-7 py-2 text-slate-300 focus:outline-none focus:border-accent-blue appearance-none cursor-pointer uppercase font-mono text-[11px]"
                   >
-                    <option value="risk_desc">Risk (High to Low)</option>
-                    <option value="risk_asc">Risk (Low to High)</option>
-                    <option value="name">Name (A to Z)</option>
-                    <option value="tenure">Tenure (Max to Min)</option>
+                    <option value="risk_desc">Risk (High &darr;)</option>
+                    <option value="risk_asc">Risk (Low &uarr;)</option>
+                    <option value="name">Name (A-Z)</option>
+                    <option value="tenure">Tenure</option>
                   </select>
-                  <ChevronDown className="w-3 h-3 text-slate-500 absolute right-2 top-2 pointer-events-none" />
+                  <ChevronDown className="w-3 h-3 text-slate-500 absolute right-2 top-3 pointer-events-none" />
                 </div>
               </div>
             </div>
@@ -465,6 +489,33 @@ export function EmployeeListPage() {
                 )}
               </tbody>
             </table>
+          </div>
+
+          {/* Mobile Select All & Controls Bar */}
+          <div className="flex md:hidden items-center justify-between bg-primary-bg/70 border border-border-primary/60 p-3 rounded font-mono text-xs">
+            <label className="flex items-center space-x-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={sortedEmployees.length > 0 && selectedIds.length === sortedEmployees.length}
+                onChange={(e) => handleSelectAll(e.target.checked)}
+                className="rounded border-border-primary/60 bg-primary-bg text-accent-blue focus:ring-[#3B82F6] cursor-pointer"
+              />
+              <span className="text-slate-300 font-semibold text-[11px]">
+                {selectedIds.length === sortedEmployees.length && sortedEmployees.length > 0
+                  ? `All Selected (${sortedEmployees.length})`
+                  : `Select All (${sortedEmployees.length})`}
+              </span>
+            </label>
+            {selectedIds.length > 0 && (
+              <button
+                onClick={handleDeleteBulk}
+                disabled={isDeleting}
+                className="bg-red-500/15 hover:bg-red-500 text-red-400 hover:text-white border border-red-500/30 px-2.5 py-1 rounded text-[10px] uppercase font-bold flex items-center space-x-1 transition-all"
+              >
+                <Trash2 className="w-3 h-3" />
+                <span>Delete ({selectedIds.length})</span>
+              </button>
+            )}
           </div>
 
           {/* Mobile Card Roster stack */}
@@ -739,7 +790,7 @@ export function EmployeeListPage() {
             <input 
               id="csv-file-input"
               type="file"
-              accept=".csv,.xlsx,.xls"
+              accept=".csv,.xlsx,.xls,.pdf"
               className="hidden"
               onChange={(e) => {
                 const file = e.target.files?.[0];
@@ -747,16 +798,16 @@ export function EmployeeListPage() {
               }}
             />
             <div className="space-y-3">
-              <span className="material-symbols-outlined text-4xl text-slate-500">cloud_upload</span>
+              <UploadCloud className="w-10 h-10 text-accent-blue mx-auto mb-1 opacity-90 animate-pulse" />
               <p className="text-sm font-semibold text-white">Drag & drop your roster file here, or <span className="text-accent-blue hover:underline">browse files</span></p>
-              <p className="text-[10px] text-slate-500 font-mono">Accepts CSV or Excel files. Headers must include: name, email, dept, role</p>
+              <p className="text-[10px] text-slate-500 font-mono">Accepts CSV, Excel (.xlsx/.xls), or PDF documents.</p>
             </div>
           </div>
 
           {selectedFile && (
             <div className="flex justify-between items-center bg-primary-bg border border-border-primary/60 rounded p-3 text-xs">
               <div className="flex items-center space-x-2">
-                <span className="material-symbols-outlined text-slate-400">description</span>
+                <FileText className="w-4 h-4 text-accent-blue shrink-0" />
                 <span className="text-white font-mono font-semibold">{selectedFile.name}</span>
                 <span className="text-slate-500 font-mono">({(selectedFile.size / 1024).toFixed(1)} KB)</span>
               </div>

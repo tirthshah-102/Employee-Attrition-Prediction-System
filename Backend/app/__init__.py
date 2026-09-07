@@ -1,18 +1,18 @@
 import os
-from flask import Flask
+from typing import Optional
+from flask import Flask, request
 from flask_jwt_extended import JWTManager
-from flask_cors import CORS
+from flask_cors import CORS  # type: ignore
 from flask_bcrypt import Bcrypt
 from dotenv import load_dotenv
 
 load_dotenv()
 
-from app.db import db
 jwt     = JWTManager()
 bcrypt  = Bcrypt()
 
 
-def create_app(config_name: str = None) -> Flask:
+def create_app(config_name: Optional[str] = None) -> Flask:
     app = Flask(__name__, instance_relative_config=True)
     app.url_map.strict_slashes = False
 
@@ -25,14 +25,46 @@ def create_app(config_name: str = None) -> Flask:
     jwt.init_app(app)
     bcrypt.init_app(app)
 
-    origins = os.getenv("CORS_ORIGINS", "http://localhost:5173,http://localhost:5174,http://localhost:5175,http://127.0.0.1:5173,http://127.0.0.1:5174,http://127.0.0.1:5175").split(",")
+    cors_origins_env = os.getenv("CORS_ORIGINS", "*")
+    if cors_origins_env and cors_origins_env != "*":
+        allowed_origins = [o.strip() for o in cors_origins_env.split(",") if o.strip()]
+    else:
+        allowed_origins = [
+            r"https?://.*\.onrender\.com",
+            r"https?://localhost(:\d+)?",
+            r"https?://127\.0\.0\.1(:\d+)?",
+            r"https://.*"
+        ]
+
     CORS(
         app,
-        resources={r"/*": {"origins": origins}},
+        resources={r"/*": {"origins": allowed_origins}},
         supports_credentials=True,
         methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-        allow_headers=["Content-Type", "Authorization"],
+        allow_headers=["Content-Type", "Authorization", "X-Requested-With", "Accept"],
     )
+
+    @app.before_request
+    def handle_preflight():
+        if request.method == "OPTIONS":
+            response = app.make_default_options_response()
+            origin = request.headers.get("Origin")
+            if origin:
+                response.headers["Access-Control-Allow-Origin"] = origin
+                response.headers["Access-Control-Allow-Credentials"] = "true"
+                response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Requested-With, Accept"
+                response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+            return response
+
+    @app.after_request
+    def apply_cors_headers(response):
+        origin = request.headers.get("Origin")
+        if origin:
+            response.headers["Access-Control-Allow-Origin"] = origin
+            response.headers["Access-Control-Allow-Credentials"] = "true"
+            response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Requested-With, Accept"
+            response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+        return response
 
     # ── Register blueprints ────────────────────────────────────────────────────
     from app.routes.auth      import auth_bp

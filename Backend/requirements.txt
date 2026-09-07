@@ -15,3 +15,4 @@ reportlab==5.0.0
 textblob==0.18.0.post0
 pymongo==4.17.0
 requests>=2.34.0
+pypdf>=4.0.0

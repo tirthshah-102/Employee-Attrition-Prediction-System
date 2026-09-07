@@ -308,41 +308,36 @@ python scripts/seed.py
 python run.py
 # Backend runs at -> http://localhost:5000
 ```
-* **Default HR Admin Login:** `admin` / `admin`
-* **Default Manager Login:** `manager` / `manager`
-* **Default Employee Login:** `employee` / `employee`
+---
+
+## Live Production Deployment
+
+AttriSense AI is deployed on **Render** with high availability and cloud persistence backed by **MongoDB Atlas**:
+
+* **Live Web Application (Frontend):** `https://attrisense-yc8d.onrender.com`
+* **Live REST API (Backend):** `https://attrisense-backend-zhgv.onrender.com/api/v1`
+* **Cloud Database:** MongoDB Atlas (Isolated Cluster DB: `attrisense_db`)
+
+### Default Production Login Credentials
+
+| Role | Email | Password | Access Scope |
+| :--- | :--- | :--- | :--- |
+| **HR Administrator** | `admin@attrisense.ai` | `Admin@123` | Full administrative control, system settings, model telemetry |
+| **People Manager** | `manager@attrisense.ai` | `Manager@123` | Department risk dashboard, retention playbooks, pulse surveys |
+| **Employee Self-Service**| `employee@attrisense.ai` | `Employee@123`| Employee pulse survey portal & feedback submission |
 
 ---
 
-### 2. Frontend Workspace Setup (React)
-Navigate to the root directory containing `package.json`:
+## Author & Project Maintainer
 
-```powershell
-# Install Node dependencies
-npm install
+* **Lead Developer / Author:** **Tirth Shah**
+  * **GitHub:** [@tirthshah-SingleTap](https://github.com/tirthshah-SingleTap)
+  * **Email:** [tirthshah.st@gmail.com](mailto:tirthshah.st@gmail.com)
 
-# Run the development environment
-npm run dev
-# Interface starts at -> http://localhost:5173
-```
+### Contributors & Team
 
-Ensure your `.env` configuration points to the active backend address:
-```env
-VITE_API_URL=http://localhost:5000/api/v1
-```
-
-To compile the production build:
-```powershell
-npm run build
-```
-
----
-
-## Project Contributors
-
-Development, integrations, and Git repositories managed by:
-* **Tirth Shah** (github.com/tirthshah-SingleTap)
-* **Pratishtha Virpura** (github.com/pratishthavirpura-SingleTap)
-* **Meet Shingala** (github.com/meetshingal-SingleTap)
-* **Niyati Patel** (github.com/niyatipatel-SingleTap)
-* **Keyur Trivedi** (github.com/keyurtrivedi-singletap)
+* **Tirth Shah** ([@tirthshah-SingleTap](https://github.com/tirthshah-SingleTap))
+* **Pratishtha Virpura** ([@pratishthavirpura-SingleTap](https://github.com/pratishthavirpura-SingleTap))
+* **Meet Shingala** ([@meetshingal-SingleTap](https://github.com/meetshingal-SingleTap))
+* **Niyati Patel** ([@niyatipatel-SingleTap](https://github.com/niyatipatel-SingleTap))
+* **Keyur Trivedi** ([@keyurtrivedi-singletap](https://github.com/keyurtrivedi-singletap))

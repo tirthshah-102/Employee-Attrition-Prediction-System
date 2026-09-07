@@ -64,6 +64,11 @@ export function DashboardPreview() {
   const [activeTab, setActiveTab] = useState<'overview' | 'risk_monitor' | 'root_causes'>('overview');
   const [logs, setLogs] = useState<typeof rawLogs>([]);
   const [logIndex, setLogIndex] = useState(0);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Simulate real-time streaming of logs
   useEffect(() => {
@@ -81,31 +86,31 @@ export function DashboardPreview() {
   }, [logIndex]);
 
   return (
-    <section id="dashboard" className="py-24 border-b border-border-primary/60 bg-primary-bg">
-      <div className="max-w-7xl mx-auto px-6">
+    <section id="dashboard" className="py-16 sm:py-24 border-b border-border-primary/60 bg-primary-bg">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6">
         
         {/* Section Header */}
-        <div className="mb-12 text-center md:text-left flex flex-col md:flex-row md:items-end justify-between gap-6">
+        <div className="mb-8 sm:mb-12 text-center md:text-left flex flex-col md:flex-row md:items-end justify-between gap-6">
           <div>
-            <div className="inline-flex items-center space-x-2 border border-blue-500/20 bg-blue-500/5 px-2.5 py-1 rounded text-xs font-mono tracking-wider text-accent-blue uppercase mb-4">
+            <div className="inline-flex items-center space-x-2 border border-blue-500/20 bg-blue-500/5 px-2.5 py-1 rounded text-xs font-mono tracking-wider text-accent-blue uppercase mb-3 sm:mb-4">
               <Activity className="w-3.5 h-3.5 animate-pulse" />
               <span>Interactive Preview</span>
             </div>
-            <h2 className="text-3xl md:text-4xl font-bold tracking-tight text-white mb-2">
+            <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-white mb-2">
               AttriSense Dashboard
             </h2>
-            <p className="text-slate-400 text-sm max-w-xl">
+            <p className="text-slate-400 text-xs sm:text-sm max-w-xl">
               Interact with the preview console below to see how our workforce systems track patterns, evaluate risks, and trigger retention plans.
             </p>
           </div>
           
           {/* Tab Switcher */}
-          <div className="flex bg-secondary-bg/80 border border-border-primary/60 p-1 rounded-lg self-center md:self-auto">
+          <div className="grid grid-cols-3 sm:flex bg-secondary-bg/80 border border-border-primary/60 p-1 rounded-lg gap-1 w-full sm:w-auto">
             <button
               onClick={() => setActiveTab('overview')}
-              className={`px-4 py-2 text-xs font-mono uppercase tracking-wider rounded transition-all duration-200 ${
+              className={`px-2 sm:px-4 py-2 text-[11px] sm:text-xs font-mono uppercase tracking-wider rounded transition-all duration-200 cursor-pointer text-center ${
                 activeTab === 'overview'
-                  ? 'bg-secondary-bg/50 text-accent-blue border border-border-primary/60'
+                  ? 'bg-accent-blue sm:bg-secondary-bg/50 text-white sm:text-accent-blue border border-border-primary/60 shadow-sm font-bold'
                   : 'text-slate-400 hover:text-white'
               }`}
             >
@@ -113,99 +118,84 @@ export function DashboardPreview() {
             </button>
             <button
               onClick={() => setActiveTab('risk_monitor')}
-              className={`px-4 py-2 text-xs font-mono uppercase tracking-wider rounded transition-all duration-200 ${
+              className={`px-2 sm:px-4 py-2 text-[11px] sm:text-xs font-mono uppercase tracking-wider rounded transition-all duration-200 cursor-pointer text-center ${
                 activeTab === 'risk_monitor'
-                  ? 'bg-secondary-bg/50 text-accent-blue border border-border-primary/60'
+                  ? 'bg-accent-blue sm:bg-secondary-bg/50 text-white sm:text-accent-blue border border-border-primary/60 shadow-sm font-bold'
                   : 'text-slate-400 hover:text-white'
               }`}
             >
-              Risk Monitor
+              Risk Matrix
             </button>
             <button
               onClick={() => setActiveTab('root_causes')}
-              className={`px-4 py-2 text-xs font-mono uppercase tracking-wider rounded transition-all duration-200 ${
+              className={`px-2 sm:px-4 py-2 text-[11px] sm:text-xs font-mono uppercase tracking-wider rounded transition-all duration-200 cursor-pointer text-center ${
                 activeTab === 'root_causes'
-                  ? 'bg-secondary-bg/50 text-accent-blue border border-border-primary/60'
+                  ? 'bg-accent-blue sm:bg-secondary-bg/50 text-white sm:text-accent-blue border border-border-primary/60 shadow-sm font-bold'
                   : 'text-slate-400 hover:text-white'
               }`}
             >
-              Risk Drivers
+              Departments
             </button>
           </div>
         </div>
 
         {/* Dashboard Shell */}
-        <div className="bg-secondary-bg/80 border border-border-primary/60 rounded-lg overflow-hidden shadow-2xl">
+        <div className="bg-secondary-bg/80 border border-border-primary/60 rounded-xl overflow-hidden shadow-2xl">
           
           {/* Dashboard Header Bar */}
-          <div className="bg-secondary-bg/50 border-b border-border-primary/60 px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="flex items-center space-x-3">
-              <div className="w-2.5 h-2.5 rounded-full bg-[#22C55E]"></div>
-              <span className="font-mono text-xs text-slate-400 tracking-wider">
-                Workspace: <span className="text-white">Active</span>
-              </span>
+          <div className="h-10 bg-secondary-bg border-b border-border-primary/60 px-4 flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <div className="w-2.5 h-2.5 rounded-full bg-red-500/80"></div>
+              <div className="w-2.5 h-2.5 rounded-full bg-yellow-500/80"></div>
+              <div className="w-2.5 h-2.5 rounded-full bg-green-500/80"></div>
+              <span className="text-[11px] font-mono text-slate-400 ml-2">preview.attrisense.ai / console</span>
             </div>
-            
-            <div className="flex items-center space-x-4 font-mono text-[10px] text-slate-400 tracking-wider">
-              <span>AI Agents Active: <span className="text-accent-blue">05/05</span></span>
-              <span className="text-white/20">|</span>
-              <span>Employees Scanned: <span className="text-white">248</span></span>
-              <span className="text-white/20">|</span>
-              <span>Alerts: <span className="text-[#EF4444]">04</span></span>
+            <div className="flex items-center space-x-2">
+              <span className="w-2 h-2 rounded-full bg-[#22C55E] animate-pulse"></span>
+              <span className="text-[10px] font-mono text-slate-400 uppercase">Live Preview Node</span>
             </div>
           </div>
 
-          <div className="p-6">
+          <div className="p-4 sm:p-6 lg:p-8 space-y-6">
             {/* Overview Tab */}
             {activeTab === 'overview' && (
-              <div className="space-y-6">
+              <div className="space-y-6 animate-fade-in">
                 {/* Tactical Mini-cards */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div className="bg-secondary-bg/50 border border-border-primary/60 p-5 rounded flex items-center justify-between">
-                    <div>
-                      <span className="block font-mono text-[10px] uppercase text-slate-400 tracking-wider mb-1">
-                        Monitored Employees
-                      </span>
-                      <span className="font-mono text-2xl font-bold text-white tracking-tight">
-                        248
-                      </span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="bg-secondary-bg/50 border border-border-primary/60 p-4 rounded">
+                    <div className="flex items-center justify-between text-slate-400 mb-2">
+                      <span className="text-[10px] font-mono uppercase tracking-wider">Total Headcount</span>
+                      <Users className="w-4 h-4 text-accent-blue" />
                     </div>
-                    <div className="text-blue-500/20 bg-blue-500/5 border border-blue-500/10 p-2.5 rounded">
-                      <Users className="w-5 h-5 text-accent-blue" />
-                    </div>
+                    <div className="text-2xl font-bold font-mono text-white">1,248</div>
+                    <div className="text-[10px] font-mono text-emerald-400 mt-1">+12 this quarter</div>
                   </div>
 
-                  <div className="bg-secondary-bg/50 border border-border-primary/60 p-5 rounded flex items-center justify-between">
-                    <div>
-                      <span className="block font-mono text-[10px] uppercase text-slate-400 tracking-wider mb-1">
-                        Attrition Rate
-                      </span>
-                      <div className="flex items-baseline space-x-2">
-                        <span className="font-mono text-2xl font-bold text-[#EF4444] tracking-tight">
-                          16.2%
-                        </span>
-                        <span className="font-mono text-xs text-[#22C55E] flex items-center">
-                          <TrendingDown className="w-3.5 h-3.5 mr-0.5" /> -51.8% improvement
-                        </span>
-                      </div>
+                  <div className="bg-secondary-bg/50 border border-border-primary/60 p-4 rounded">
+                    <div className="flex items-center justify-between text-slate-400 mb-2">
+                      <span className="text-[10px] font-mono uppercase tracking-wider">At-Risk Workforce</span>
+                      <AlertTriangle className="w-4 h-4 text-[#EF4444]" />
                     </div>
-                    <div className="text-emerald-500/20 bg-emerald-500/5 border border-emerald-500/10 p-2.5 rounded">
-                      <TrendingDown className="w-5 h-5 text-[#22C55E]" />
-                    </div>
+                    <div className="text-2xl font-bold font-mono text-[#EF4444]">54</div>
+                    <div className="text-[10px] font-mono text-[#EF4444] mt-1">4.3% of total workforce</div>
                   </div>
 
-                  <div className="bg-secondary-bg/50 border border-border-primary/60 p-5 rounded flex items-center justify-between">
-                    <div>
-                      <span className="block font-mono text-[10px] uppercase text-slate-400 tracking-wider mb-1">
-                        High Risk Employees
-                      </span>
-                      <span className="font-mono text-2xl font-bold text-[#F59E0B] tracking-tight">
-                        04
-                      </span>
+                  <div className="bg-secondary-bg/50 border border-border-primary/60 p-4 rounded">
+                    <div className="flex items-center justify-between text-slate-400 mb-2">
+                      <span className="text-[10px] font-mono uppercase tracking-wider">Avg Flight Risk</span>
+                      <TrendingDown className="w-4 h-4 text-[#F59E0B]" />
                     </div>
-                    <div className="text-amber-500/20 bg-amber-500/5 border border-amber-500/10 p-2.5 rounded">
-                      <AlertTriangle className="w-5 h-5 text-[#F59E0B]" />
+                    <div className="text-2xl font-bold font-mono text-[#F59E0B]">7.8%</div>
+                    <div className="text-[10px] font-mono text-emerald-400 mt-1">-8.4% with AttriSense AI</div>
+                  </div>
+
+                  <div className="bg-secondary-bg/50 border border-border-primary/60 p-4 rounded">
+                    <div className="flex items-center justify-between text-slate-400 mb-2">
+                      <span className="text-[10px] font-mono uppercase tracking-wider">Estimated Savings</span>
+                      <Zap className="w-4 h-4 text-emerald-400" />
                     </div>
+                    <div className="text-2xl font-bold font-mono text-emerald-400">$3.2M</div>
+                    <div className="text-[10px] font-mono text-slate-400 mt-1">Annualized ROI</div>
                   </div>
                 </div>
 
@@ -213,8 +203,8 @@ export function DashboardPreview() {
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                   
                   {/* Left Column: Recharts Chart */}
-                  <div className="lg:col-span-8 bg-secondary-bg/50 border border-border-primary/60 p-6 rounded flex flex-col">
-                    <div className="flex items-center justify-between mb-6">
+                  <div className="lg:col-span-8 bg-secondary-bg/50 border border-border-primary/60 rounded p-4 sm:p-6 flex flex-col justify-between">
+                    <div className="flex items-center justify-between mb-4">
                       <span className="font-mono text-[10px] uppercase text-slate-400 tracking-wider">
                         Attrition Projection (6-Month Forecast)
                       </span>
@@ -228,32 +218,38 @@ export function DashboardPreview() {
                       </div>
                     </div>
 
-                    <div className="h-64 w-full">
-                      <ResponsiveContainer width="100%" height={256} minWidth={0}>
-                        <AreaChart data={trendData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                          <defs>
-                            <linearGradient id="colorOptimized" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.3}/>
-                              <stop offset="95%" stopColor="#3B82F6" stopOpacity={0}/>
-                            </linearGradient>
-                          </defs>
-                          <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.03)" vertical={false} />
-                          <XAxis dataKey="name" stroke="#6b7280" fontSize={10} tick={{ fontFamily: 'var(--font-mono)' }} />
-                          <YAxis stroke="#6b7280" fontSize={10} tick={{ fontFamily: 'var(--font-mono)' }} />
-                          <Tooltip 
-                            contentStyle={{ 
-                              backgroundColor: '#121414', 
-                              borderColor: '#2A2D2F',
-                              borderRadius: '4px',
-                              fontFamily: 'monospace',
-                              fontSize: '11px',
-                              color: '#fff'
-                            }} 
-                          />
-                          <Area type="monotone" dataKey="baseline" stroke="#4b5563" strokeWidth={1.5} fill="none" strokeDasharray="5 5" />
-                          <Area type="monotone" dataKey="optimized" stroke="#3B82F6" strokeWidth={2} fillOpacity={1} fill="url(#colorOptimized)" />
-                        </AreaChart>
-                      </ResponsiveContainer>
+                    <div className="w-full min-w-0 h-64 relative">
+                      {mounted ? (
+                        <ResponsiveContainer width="100%" height={240} minWidth={0} minHeight={240}>
+                          <AreaChart data={trendData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                            <defs>
+                              <linearGradient id="colorOptimized" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.3}/>
+                                <stop offset="95%" stopColor="#3B82F6" stopOpacity={0}/>
+                              </linearGradient>
+                            </defs>
+                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.03)" vertical={false} />
+                            <XAxis dataKey="name" stroke="#6b7280" fontSize={10} tick={{ fontFamily: 'var(--font-mono)' }} />
+                            <YAxis stroke="#6b7280" fontSize={10} tick={{ fontFamily: 'var(--font-mono)' }} />
+                            <Tooltip 
+                              contentStyle={{ 
+                                backgroundColor: '#121414', 
+                                borderColor: '#2A2D2F',
+                                borderRadius: '4px',
+                                fontFamily: 'monospace',
+                                fontSize: '11px',
+                                color: '#fff'
+                              }} 
+                            />
+                            <Area type="monotone" dataKey="baseline" stroke="#4b5563" strokeWidth={1.5} fill="none" strokeDasharray="5 5" />
+                            <Area type="monotone" dataKey="optimized" stroke="#3B82F6" strokeWidth={2} fillOpacity={1} fill="url(#colorOptimized)" />
+                          </AreaChart>
+                        </ResponsiveContainer>
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-xs text-slate-500 font-mono">
+                          Loading chart preview...
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -399,29 +395,35 @@ export function DashboardPreview() {
                     <span className="block font-mono text-[10px] uppercase text-slate-400 tracking-wider mb-4">
                       High Risk Employees by Department
                     </span>
-                    <div className="h-64 w-full">
-                      <ResponsiveContainer width="100%" height={256} minWidth={0}>
-                        <BarChart data={deptData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.03)" vertical={false} />
-                          <XAxis dataKey="name" stroke="#6b7280" fontSize={10} tick={{ fontFamily: 'var(--font-mono)' }} />
-                          <YAxis stroke="#6b7280" fontSize={10} tick={{ fontFamily: 'var(--font-mono)' }} />
-                          <Tooltip 
-                            contentStyle={{ 
-                              backgroundColor: '#121414', 
-                              borderColor: '#2A2D2F',
-                              borderRadius: '4px',
-                              fontFamily: 'monospace',
-                              fontSize: '11px',
-                              color: '#fff'
-                            }}
-                          />
-                          <Bar dataKey="count" radius={[4, 4, 0, 0]}>
-                            {deptData.map((entry, index) => (
-                              <Cell key={`cell-${index}`} fill={entry.color} opacity={0.8} />
-                            ))}
-                          </Bar>
-                        </BarChart>
-                      </ResponsiveContainer>
+                    <div className="w-full min-w-0 h-64 relative">
+                      {mounted ? (
+                        <ResponsiveContainer width="100%" height={240} minWidth={0} minHeight={240}>
+                          <BarChart data={deptData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.03)" vertical={false} />
+                            <XAxis dataKey="name" stroke="#6b7280" fontSize={10} tick={{ fontFamily: 'var(--font-mono)' }} />
+                            <YAxis stroke="#6b7280" fontSize={10} tick={{ fontFamily: 'var(--font-mono)' }} />
+                            <Tooltip 
+                              contentStyle={{ 
+                                backgroundColor: '#121414', 
+                                borderColor: '#2A2D2F',
+                                borderRadius: '4px',
+                                fontFamily: 'monospace',
+                                fontSize: '11px',
+                                color: '#fff'
+                              }}
+                            />
+                            <Bar dataKey="count" radius={[4, 4, 0, 0]}>
+                              {deptData.map((entry, index) => (
+                                <Cell key={`cell-${index}`} fill={entry.color} opacity={0.8} />
+                              ))}
+                            </Bar>
+                          </BarChart>
+                        </ResponsiveContainer>
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-xs text-slate-500 font-mono">
+                          Loading distribution chart...
+                        </div>
+                      )}
                     </div>
                   </div>
 

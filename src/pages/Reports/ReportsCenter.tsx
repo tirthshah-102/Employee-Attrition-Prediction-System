@@ -113,24 +113,24 @@ export default function ReportsCenter() {
     };
 
     return (
-        <div className="space-y-6 max-w-6xl mx-auto">
+        <div className="space-y-4 sm:space-y-6 max-w-6xl mx-auto">
             {/* Header section */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4">
                 <div className="space-y-1">
-                    <h2 className="text-3xl font-extrabold tracking-tight text-white">Reports & Executive Analytics</h2>
-                    <p className="text-slate-400 text-sm">Generate corporate audit reports, download monitored telemetry, or configure scheduled background distributions.</p>
+                    <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">Reports & Executive Analytics</h2>
+                    <p className="text-slate-400 text-xs sm:text-sm">Generate corporate audit reports, download monitored telemetry, or configure scheduled background distributions.</p>
                 </div>
             </div>
 
             {/* Reports Download cards grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
                 {/* PDF Brief Card */}
-                <div className="bg-secondary-bg/50 border border-border-primary p-6 rounded-2xl flex flex-col justify-between hover:border-indigo-500/30 transition-all duration-300 shadow-lg">
+                <div className="bg-secondary-bg/50 border border-border-primary p-4 sm:p-6 rounded-xl sm:rounded-2xl flex flex-col justify-between hover:border-indigo-500/30 transition-all duration-300 shadow-lg">
                     <div className="space-y-3">
-                        <div className="w-12 h-12 bg-red-500/10 border border-red-500/20 rounded-xl flex items-center justify-center text-red-400">
-                            <FileText className="w-6 h-6" />
+                        <div className="w-10 h-10 sm:w-12 sm:h-12 bg-red-500/10 border border-red-500/20 rounded-xl flex items-center justify-center text-red-400">
+                            <FileText className="w-5 h-5 sm:w-6 sm:h-6" />
                         </div>
-                        <h3 className="text-lg font-bold text-white">Executive Summary Brief (PDF)</h3>
+                        <h3 className="text-base sm:text-lg font-bold text-white">Executive Summary Brief (PDF)</h3>
                         <p className="text-xs text-slate-400 leading-relaxed">
                             Generate a formal, publication-ready executive summary. Includes high-level KPIs, threat index metrics, and the top 15 critical attrition risk cases inside a structured layout.
                         </p>
@@ -138,7 +138,7 @@ export default function ReportsCenter() {
                     <button
                         onClick={() => handleDownload('pdf')}
                         disabled={isDownloadingPdf}
-                        className="mt-6 w-full flex items-center justify-center gap-2 py-3 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-xl transition-all shadow-md text-sm"
+                        className="mt-5 sm:mt-6 w-full flex items-center justify-center gap-2 py-3 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-xl transition-all shadow-md text-xs sm:text-sm cursor-pointer disabled:opacity-50"
                     >
                         <Download className="w-4 h-4" />
                         {isDownloadingPdf ? "Generating PDF..." : "Export Executive Brief (PDF)"}
@@ -146,12 +146,12 @@ export default function ReportsCenter() {
                 </div>
 
                 {/* Excel Report Card */}
-                <div className="bg-secondary-bg/50 border border-border-primary p-6 rounded-2xl flex flex-col justify-between hover:border-emerald-500/30 transition-all duration-300 shadow-lg">
+                <div className="bg-secondary-bg/50 border border-border-primary p-4 sm:p-6 rounded-xl sm:rounded-2xl flex flex-col justify-between hover:border-emerald-500/30 transition-all duration-300 shadow-lg">
                     <div className="space-y-3">
-                        <div className="w-12 h-12 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-center justify-center text-emerald-400">
-                            <FileText className="w-6 h-6" />
+                        <div className="w-10 h-10 sm:w-12 sm:h-12 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-center justify-center text-emerald-400">
+                            <FileText className="w-5 h-5 sm:w-6 sm:h-6" />
                         </div>
-                        <h3 className="text-lg font-bold text-white">Headcount & Telemetry Roster (Excel)</h3>
+                        <h3 className="text-base sm:text-lg font-bold text-white">Headcount & Telemetry Roster (Excel)</h3>
                         <p className="text-xs text-slate-400 leading-relaxed">
                             Export the full system telemetry roster. Contains complete monitored columns including weekly working hours, salary percentile gaps, performance records, and risk probabilities.
                         </p>
@@ -159,7 +159,7 @@ export default function ReportsCenter() {
                     <button
                         onClick={() => handleDownload('excel')}
                         disabled={isDownloadingExcel}
-                        className="mt-6 w-full flex items-center justify-center gap-2 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl transition-all shadow-md text-sm"
+                        className="mt-5 sm:mt-6 w-full flex items-center justify-center gap-2 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl transition-all shadow-md text-xs sm:text-sm cursor-pointer disabled:opacity-50"
                     >
                         <Download className="w-4 h-4" />
                         {isDownloadingExcel ? "Generating Excel..." : "Export Full Telemetry (Excel)"}
@@ -168,10 +168,10 @@ export default function ReportsCenter() {
             </div>
 
             {/* Middle Section: Configuration + Execution Logs */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
                 
                 {/* Scheduler Configuration Panel */}
-                <div className="lg:col-span-1 bg-secondary-bg border border-border-primary p-6 rounded-2xl shadow-lg space-y-6">
+                <div className="lg:col-span-1 bg-secondary-bg border border-border-primary p-4 sm:p-6 rounded-xl sm:rounded-2xl shadow-lg space-y-4 sm:space-y-6">
                     <div className="flex items-center gap-2 border-b border-border-primary/60 pb-3">
                         <Settings className="w-4 h-4 text-indigo-400" />
                         <h4 className="font-bold text-sm text-white uppercase tracking-wider">Automated Scheduler</h4>

@@ -272,24 +272,54 @@ export default function CopilotWorkspace() {
     }
   };
 
+  const [showFocusDrawer, setShowFocusDrawer] = useState(false);
+
   return (
-    <div className="flex flex-col xl:flex-row min-h-[calc(100vh-8rem)] gap-6">
+    <div className="flex flex-col xl:flex-row min-h-[calc(100vh-8rem)] gap-4 sm:gap-6">
       
-      {/* LEFT COLUMN: Employee Focus Selector */}
-      <aside className="w-full xl:w-72 bg-secondary-bg/50 border border-border-primary/60 rounded-xl p-5 shrink-0 flex flex-col justify-between">
+      {/* Mobile/Tablet Focus Bar Switcher */}
+      <div className="xl:hidden flex items-center justify-between p-3 bg-secondary-bg/70 border border-border-primary/60 rounded-xl">
+        <div className="flex items-center gap-2">
+          <User size={15} className="text-primary" />
+          <div className="text-xs">
+            <span className="text-slate-400 font-mono text-[10px] block">Active Focus:</span>
+            <span className="font-bold text-slate-200">
+              {selectedEmpId ? maskName(employees.find(e => e.id === selectedEmpId)?.name || '', isDataMasked) : 'Global Organization Scope'}
+            </span>
+          </div>
+        </div>
+        <button
+          onClick={() => setShowFocusDrawer(!showFocusDrawer)}
+          className="px-3 py-1.5 bg-elevated-bg hover:bg-surface-container-high text-xs text-primary font-mono rounded border border-border-primary/60 flex items-center gap-1.5 transition-colors"
+        >
+          <span>{showFocusDrawer ? 'Hide Nodes' : 'Select Target'}</span>
+          <ChevronRight size={12} className={`transition-transform duration-200 ${showFocusDrawer ? 'rotate-90' : ''}`} />
+        </button>
+      </div>
+
+      {/* LEFT COLUMN: Employee Focus Selector (Collapsible on mobile/tablet, static on xl) */}
+      <aside className={`${showFocusDrawer ? 'flex' : 'hidden'} xl:flex w-full xl:w-72 bg-secondary-bg/50 border border-border-primary/60 rounded-xl p-4 sm:p-5 shrink-0 flex-col justify-between`}>
         <div className="space-y-4">
-          <div className="flex items-center gap-2 border-b border-white/5 pb-3">
-            <User size={16} className="text-primary" />
-            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-200">Chat Focus Node</h3>
+          <div className="flex items-center justify-between border-b border-white/5 pb-3">
+            <div className="flex items-center gap-2">
+              <User size={16} className="text-primary" />
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-200">Chat Focus Node</h3>
+            </div>
+            {selectedEmpId && (
+              <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">Active</span>
+            )}
           </div>
           
           <p className="text-[10px] text-slate-400 leading-normal">
             Select an employee to populate target intelligence context dynamically into the AI Agent.
           </p>
 
-          <div className="space-y-2 max-h-[320px] overflow-y-auto custom-scrollbar">
+          <div className="space-y-2 max-h-[260px] sm:max-h-[320px] overflow-y-auto custom-scrollbar">
             <button
-              onClick={() => setSelectedEmpId('')}
+              onClick={() => {
+                setSelectedEmpId('');
+                setShowFocusDrawer(false);
+              }}
               className={`w-full flex items-center justify-between p-2.5 rounded text-left border transition-all text-xs font-semibold ${
                 selectedEmpId === '' 
                   ? 'bg-elevated-bg border-accent-blue text-accent-blue' 
@@ -303,7 +333,10 @@ export default function CopilotWorkspace() {
             {employees.map(emp => (
               <button
                 key={emp.id}
-                onClick={() => setSelectedEmpId(emp.id)}
+                onClick={() => {
+                  setSelectedEmpId(emp.id);
+                  setShowFocusDrawer(false);
+                }}
                 className={`w-full flex items-center justify-between p-2.5 rounded text-left border transition-all text-xs font-semibold ${
                   selectedEmpId === emp.id 
                     ? 'bg-elevated-bg border-accent-blue text-accent-blue font-bold' 
@@ -351,14 +384,14 @@ export default function CopilotWorkspace() {
       </aside>
 
       {/* RIGHT COLUMN: Chat Console Workspace */}
-      <main className="flex-1 bg-secondary-bg/50 border border-border-primary/60 rounded-xl overflow-hidden shadow-xl flex flex-col justify-between h-[520px]">
+      <main className="flex-1 bg-secondary-bg/50 border border-border-primary/60 rounded-xl overflow-hidden shadow-xl flex flex-col justify-between h-[560px] sm:h-[620px] xl:h-[calc(100vh-10rem)]">
         {/* Chat Title bar */}
-        <div className="p-4 border-b border-border-primary/60 bg-elevated-bg/30 flex justify-between items-center shrink-0">
+        <div className="p-3 sm:p-4 border-b border-border-primary/60 bg-elevated-bg/30 flex flex-wrap gap-2 justify-between items-center shrink-0">
           <div className="flex items-center gap-2">
-            <Bot size={18} className="text-primary" />
+            <Bot size={18} className="text-primary shrink-0" />
             <div>
               <h4 className="text-xs font-bold text-slate-100 uppercase font-mono">Agent Copilot Console</h4>
-              <p className="text-[9px] text-slate-400 font-mono mt-0.5">
+              <p className="text-[9px] text-slate-400 font-mono mt-0.5 truncate max-w-[200px] sm:max-w-none">
                 {selectedEmpId ? `Context active: ${maskName(employees.find(e => e.id === selectedEmpId)?.name || '', isDataMasked)}` : 'Global organizational risk scope'}
               </p>
             </div>
@@ -369,7 +402,7 @@ export default function CopilotWorkspace() {
         </div>
 
         {/* Message Stream area */}
-        <div className="flex-grow p-6 overflow-y-auto custom-scrollbar space-y-4">
+        <div className="flex-grow p-3.5 sm:p-6 overflow-y-auto custom-scrollbar space-y-4">
           {messages.length === 0 && (
             <div className="h-full flex flex-col items-center justify-center text-center space-y-4 opacity-50 p-6">
               <MessageSquare size={36} className="text-slate-600" />
